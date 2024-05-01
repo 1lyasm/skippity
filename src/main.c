@@ -112,6 +112,22 @@ static int compScore(int player, int *counts0, int *counts1) {
   return score;
 }
 
+static void save(char **b, size_t n, int player) {
+    char *buf = calloc((size_t)(n * n + 2), sizeof(char));
+    size_t i, j, k = 0;
+    FILE *outf;
+    for (i = 0; i < n; ++i) {
+        for (j = 0; j < n; ++j) {
+            buf[k++] = b[i][j];
+        }
+    }
+    buf[k++] = (char) player + '0';
+    printf("\n");
+    outf = fopen("skippity.txt", "w");
+    fprintf(outf, "%s", buf);
+    free(buf);
+}
+
 static void playHuman(char **b, size_t n, char *colors) {
   int player = 0;
   int ended = 0;
@@ -149,6 +165,13 @@ static void playHuman(char **b, size_t n, char *colors) {
         switchP(&player, &nUndo, &nRedo, &wantsRedo, &hPos);
       }
     } else {
+        printf("\nDo you want to save and exit ('y': yes)? ");
+        scanf(" %c", &input);
+        if (input == 'y') {
+            save(b, n, player);
+            exit(EXIT_SUCCESS);
+        }
+
       printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", player + '0');
       scanf(" %d %d %d %d", &p.x0, &p.y0, &p.x1, &p.y1);
       /* printf("\nMove: (%d, %d), (%d, %d)\n", p.x0, p.y0, p.x1, p.y1); */
@@ -193,9 +216,12 @@ int main() {
   size_t n;
   char **b;
   size_t i, j;
+  char input;
   char colors[] = {'O', 'A', 'B', 'C', 'D', 'E'};
   int mode;
   srand((unsigned)time(NULL));
+
+
   printf("\nEnter board size: ");
   scanf(" %lu", &n);
   b = malloc(n * sizeof(char *));
@@ -212,6 +238,7 @@ int main() {
       b[i][j] = colors[0];
     }
   }
+
   printf("\nInitial board: \n");
   printBoard(b, n);
   printf("\nEnter game mode (0: human, 1: computer): ");
