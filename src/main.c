@@ -129,8 +129,34 @@ static void save(char **b, size_t n, int player) {
   free(buf);
 }
 
-static int gameEnds(char **b, size_t n) {
-    return 0;
+static int inBoard(int x, int y, size_t n) {
+  int n2 = (int)n;
+  return x >= 0 && x < n2 && y >= 0 & y < n2;
+}
+
+static int canMove(char **b, size_t n, char *colors, int i, int j, int di,
+                   int dj) {
+  return inBoard(i + di, j + dj, n) && inBoard(i + 2 * di, j + 2 * dj, n) &&
+         b[i + di][j + dj] != colors[0] &&
+         b[i + 2 * di][j + 2 * dj] == colors[0];
+}
+
+static int gameEnds(char **b, size_t n, char *colors) {
+  int ends = 1;
+  int i, j;
+  for (i = 0; i < (int)n && ends; ++i) {
+    for (j = 0; j < (int)n && ends; ++j) {
+      if (b[i][j] != colors[0]) {
+        if (canMove(b, n, colors, i, j, 1, 0) ||
+            canMove(b, n, colors, i, j, 0, 1) ||
+            canMove(b, n, colors, i, j, -1, 0) ||
+            canMove(b, n, colors, i, j, 0, -1)) {
+          ends = 0;
+        }
+      }
+    }
+  }
+  return ends;
 }
 
 static void playHuman(char **b, size_t n, char *colors, int player) {
@@ -185,7 +211,7 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
       printBoard(b, n);
       score = compScore(player, counts0, counts1);
       printf("\nScore of player %d: %d\n", player, score);
-      if (gameEnds(b, n)) {
+      if (gameEnds(b, n, colors)) {
         ended = 1;
       } else {
         if (nUndo <= 0) {
