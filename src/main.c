@@ -212,6 +212,7 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
       score = compScore(player, counts0, counts1);
       printf("\nScore of player %d: %d\n", player, score);
       if (gameEnds(b, n, colors)) {
+        printf("\nPlayer %d won\n", player);
         ended = 1;
       } else {
         if (nUndo <= 0) {
