@@ -96,21 +96,21 @@ static void printArr(int *counts, int n) {
   printf("\n");
 }
 
-static int compScore(int player, int *counts0, int *counts1) {
-  int *counts, min_, i, score;
+static void compScore(int player, int *counts0, int *counts1, int *score0,
+                      int *score1) {
+  int *counts, *prevScore, min_, i, score;
   if (player == 0) {
     counts = counts0;
+    prevScore = score0;
   } else {
     counts = counts1;
+    prevScore = score1;
   }
   /* printf("\nCounts: "); */
   /* printArr(counts, N_SKIPPER); */
   min_ = findMin(counts, N_SKIPPER);
   score = min_;
-  for (i = 0; i < N_SKIPPER; ++i) {
-    score += counts[i] - min_;
-  }
-  return score;
+  *prevScore = score;
 }
 
 static void save(char **b, size_t n, int player) {
@@ -160,19 +160,12 @@ static int gameEnds(char **b, size_t n, char *colors) {
 }
 
 static void playHuman(char **b, size_t n, char *colors, int player) {
-  int ended = 0;
+  int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
+      wantsRedo = 1, score0, score1, i;
   Points p;
-  int nUndo = 0;
-  int nRedo = 0;
-  int hPos = 0;
-  int redoes;
-  int undoes;
   char input;
-  int canUndo;
-  int wantsRedo = 1;
   int *counts0 = calloc(N_SKIPPER, sizeof(int));
   int *counts1 = calloc(N_SKIPPER, sizeof(int));
-  int score;
   History h;
   while (ended == 0) {
     canUndo = 0;
@@ -209,10 +202,33 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
       /* printf("\nMiddle x: %d, Middle y: %d\n", p.mx, p.my); */
       move(b, colors, &p, &h, player, counts0, counts1);
       printBoard(b, n);
-      score = compScore(player, counts0, counts1);
-      printf("\nScore of player %d: %d\n", player, score);
+      compScore(player, counts0, counts1, &score0, &score1);
+      printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
       if (gameEnds(b, n, colors)) {
-        printf("\nPlayer %d won\n", player);
+        if (score0 == score1) {
+          int min0 = findMin(counts0, N_SKIPPER),
+              min1 = findMin(counts1, N_SKIPPER);
+          int escore0 = 0, escore1 = 0;
+          for (i = 0; i < N_SKIPPER; ++i) {
+            escore0 += counts0[i] - min0;
+          }
+          for (i = 0; i < N_SKIPPER; ++i) {
+            escore1 += counts1[i] - min1;
+          }
+          printf("\nExtra score of player 0: %d\n", escore0);
+          printf("\nExtra score of player 1: %d\n", escore1);
+          if (escore0 == escore1) {
+            printf("\nGame ends in a tie\n");
+          } else if (escore0 > escore1) {
+            printf("\nPlayer 0 wins\n");
+          } else {
+            printf("\nPlayer 1 wins\n");
+          }
+        } else if (score0 > score1) {
+            printf("\nPlayer 0 wins\n");
+        } else {
+            printf("\nPlayer 1 wins\n");
+        }
         ended = 1;
       } else {
         if (nUndo <= 0) {
