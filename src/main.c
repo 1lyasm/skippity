@@ -7,11 +7,6 @@
 
 #define N_SKIPPER 5
 
-/* State-space tree */
-typedef struct {
-
-} Sst;
-
 typedef struct {
   int x0;
   int y0;
@@ -21,11 +16,32 @@ typedef struct {
   int my;
 } Move;
 
+/* State-space Tree */
+typedef struct Sst {
+  Move *move;
+  char **initB;
+  int pl;
+  int nChild;
+  int sChild;
+  struct Sst **children;
+} Sst;
+
 typedef struct {
   char lastBef;
   char lastMid;
   char lastAft;
 } History;
+
+static Sst *sst(Move *m) {
+  Sst *t = malloc(sizeof(Sst));
+  t->move = m;
+  t->initB = NULL;
+  t->pl = -1;
+  t->nChild = 0;
+  t->sChild = 16;
+  t->children = malloc(t->sChild * sizeof(Sst *));
+  return t;
+}
 
 static void printBoard(char **b, size_t n) {
   size_t i, j;
@@ -52,21 +68,21 @@ static void undo(char **b, Move *p, History *h) {
   b[p->x1][p->y1] = aft;
 }
 
-static void move(char **b, char *colors, Move *p, History *h, int player,
+static void move(char **b, char *colors, Move *p, History *h, int pl,
                  int *counts0, int *counts1) {
   char taken = b[p->mx][p->my];
   remember(h, b, p);
   b[p->mx][p->my] = colors[0];
   b[p->x1][p->y1] = b[p->x0][p->y0];
   b[p->x0][p->y0] = colors[0];
-  if (player == 0) {
+  if (pl == 0) {
     ++counts0[taken - 'A'];
   } else {
     ++counts1[taken - 'A'];
   }
 }
 
-static void switchP(int *player, int *nUndo, int *nRedo, int *wantsRedo,
+static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
                     int *hPos) {
   char continues;
   printf("\nDo you want to play another move ('y': yes, 'n': no)? ");
@@ -74,7 +90,7 @@ static void switchP(int *player, int *nUndo, int *nRedo, int *wantsRedo,
   if (continues == 'y') {
 
   } else {
-    *player = (*player + 1) % 2;
+    *pl = (*pl + 1) % 2;
   }
   *nUndo = 0;
   *nRedo = 0;
@@ -101,10 +117,10 @@ static void printArr(int *counts, int n) {
   printf("\n");
 }
 
-static void compScore(int player, int *counts0, int *counts1, int *score0,
+static void compScore(int pl, int *counts0, int *counts1, int *score0,
                       int *score1) {
   int *counts, *prevScore, min_, score;
-  if (player == 0) {
+  if (pl == 0) {
     counts = counts0;
     prevScore = score0;
   } else {
@@ -118,7 +134,7 @@ static void compScore(int player, int *counts0, int *counts1, int *score0,
   *prevScore = score;
 }
 
-static void save(char **b, size_t n, int player) {
+static void save(char **b, size_t n, int pl) {
   char *buf = calloc((size_t)(n * n + 2), sizeof(char));
   size_t i, j, k = 0;
   FILE *outf;
@@ -127,7 +143,7 @@ static void save(char **b, size_t n, int player) {
       buf[k++] = b[i][j];
     }
   }
-  buf[k++] = (char)player + '0';
+  buf[k++] = (char)pl + '0';
   printf("\n");
   outf = fopen("skippity.txt", "w");
   fprintf(outf, "%s", buf);
@@ -164,7 +180,12 @@ static int gameEnds(char **b, size_t n, char *colors) {
   return ends;
 }
 
-static void playHuman(char **b, size_t n, char *colors, int player) {
+static void setMiddle(Move *m) {
+  m->mx = (m->x0 + m->x1) / 2;
+  m->my = (m->y0 + m->y1) / 2;
+}
+
+static void playHuman(char **b, size_t n, char *colors, int pl) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
       wantsRedo = 1, score0, score1, i;
   Move p;
@@ -185,30 +206,29 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
         ++hPos;
         printBoard(b, n);
         if (nRedo >= 1) {
-          switchP(&player, &nUndo, &nRedo, &wantsRedo, &hPos);
+          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         }
         nRedo += 1;
       } else {
         wantsRedo = 0;
-        switchP(&player, &nUndo, &nRedo, &wantsRedo, &hPos);
+        switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
       }
     } else {
       printf("\nDo you want to save and exit ('y': yes)? ");
       scanf(" %c", &input);
       if (input == 'y') {
-        save(b, n, player);
+        save(b, n, pl);
         exit(EXIT_SUCCESS);
       }
-      printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", player + '0');
+      printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
       scanf(" %d %d %d %d", &p.x0, &p.y0, &p.x1, &p.y1);
       /* printf("\nMove: (%d, %d), (%d, %d)\n", p.x0, p.y0, p.x1, p.y1); */
-      p.mx = (p.x0 + p.x1) / 2;
-      p.my = (p.y0 + p.y1) / 2;
+      setMiddle(&p);
       /* printf("\nMiddle x: %d, Middle y: %d\n", p.mx, p.my); */
-      move(b, colors, &p, &h, player, counts0, counts1);
+      move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
-      compScore(player, counts0, counts1, &score0, &score1);
-      printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
+      compScore(pl, counts0, counts1, &score0, &score1);
+      printf("\nScore of pl 0: %d, 1: %d\n", score0, score1);
       if (gameEnds(b, n, colors)) {
         if (score0 == score1) {
           int min0 = findMin(counts0, N_SKIPPER),
@@ -220,8 +240,8 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
           for (i = 0; i < N_SKIPPER; ++i) {
             escore1 += counts1[i] - min1;
           }
-          printf("\nExtra score of player 0: %d\n", escore0);
-          printf("\nExtra score of player 1: %d\n", escore1);
+          printf("\nExtra score of pl 0: %d\n", escore0);
+          printf("\nExtra score of pl 1: %d\n", escore1);
           if (escore0 == escore1) {
             printf("\nGame ends in a tie\n");
           } else if (escore0 > escore1) {
@@ -230,9 +250,9 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
             printf("\nPlayer 1 wins\n");
           }
         } else if (score0 > score1) {
-            printf("\nPlayer 0 wins\n");
+          printf("\nPlayer 0 wins\n");
         } else {
-            printf("\nPlayer 1 wins\n");
+          printf("\nPlayer 1 wins\n");
         }
         ended = 1;
       } else {
@@ -251,7 +271,7 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
           undoes = 0;
         }
         if (!(undoes && nUndo == 0) || !canUndo) {
-          switchP(&player, &nUndo, &nRedo, &wantsRedo, &hPos);
+          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         } else {
           undo(b, &p, &h);
           if (undoes) {
@@ -267,6 +287,69 @@ static void playHuman(char **b, size_t n, char *colors, int player) {
   free(counts1);
 }
 
+static void printMove(Move *m) {
+  printf("[(%d, %d), (%d, %d), (%d, %d)]\n", m->x0, m->y0,
+         m->mx, m->my, m->x1, m->y1);
+}
+
+static void printSubsst(Sst *r) {
+  if (r) {
+    int i;
+    printMove(r->move);
+    for (i = 0; i < r->nChild; ++i) {
+      printf("\t");
+      printSubsst(r->children[i]);
+    }
+  }
+}
+
+static void printSst(Sst *r) {
+  printf("\nSst:\n");
+  printSubsst(r);
+}
+
+static Move *makeMove(int x0, int y0, int x1, int y1) {
+  Move *m = malloc(sizeof(Move));
+  m->x0 = x0;
+  m->y0 = y0;
+  m->x1 = x1;
+  m->y1 = y1;
+  setMiddle(m);
+  return m;
+}
+
+static void insert(Sst *r, Move *m, int pl) {
+  Sst **child = &(r->children[r->nChild++]);
+  if (r->nChild >= r->sChild) {
+    r->sChild *= 2;
+    r->children = realloc(r->children, r->sChild);
+  }
+  *child = sst(m);
+  (*child)->pl = pl;
+  (*child)->initB = r->initB;
+}
+
+static void freeSst(Sst *r) {
+    int i;
+    for (i = 0; i < r->nChild; ++i) {
+        freeSst(r->children[i]);
+    }
+    free(r->children);
+    free(r->move);
+    free(r);
+}
+
+static void testSst() {
+  Sst *r;
+  int pl;
+  r = sst(makeMove(0, 2, 2, 2));
+  pl = 0;
+  insert(r, makeMove(0, 3, 2, 3), pl);
+  printSst(r);
+  freeSst(r);
+  exit(EXIT_SUCCESS);
+}
+
 int main() {
   size_t n;
   char **b = NULL;
@@ -274,7 +357,8 @@ int main() {
   char input;
   char colors[] = {'O', 'A', 'B', 'C', 'D', 'E'};
   int mode;
-  int player = 0;
+  int pl = 0;
+  testSst();
   srand((unsigned)time(NULL));
   printf("Do you want to continue the previous game ('y': yes)? ");
   scanf(" %c", &input);
@@ -296,7 +380,7 @@ int main() {
       /* printf("i / n: %d\n", i / n); */
       b[i / n][i % n] = buf[i];
     }
-    player = buf[k - 1] - '0';
+    pl = buf[k - 1] - '0';
     free(buf);
   } else {
     printf("\nEnter board size: ");
@@ -321,7 +405,7 @@ int main() {
   printf("\nEnter game mode (0: human, 1: computer): ");
   scanf(" %d", &mode);
   if (mode == 0) {
-    playHuman(b, n, colors, player);
+    playHuman(b, n, colors, pl);
   } else {
   }
   for (i = 0; i < n; ++i) {
@@ -330,4 +414,3 @@ int main() {
   free(b);
   return 0;
 }
-
