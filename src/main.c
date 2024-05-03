@@ -7,6 +7,11 @@
 
 #define N_SKIPPER 5
 
+/* State-space tree */
+typedef struct {
+
+} Sst;
+
 typedef struct {
   int x0;
   int y0;
@@ -14,7 +19,7 @@ typedef struct {
   int y1;
   int mx;
   int my;
-} Points;
+} Move;
 
 typedef struct {
   char lastBef;
@@ -33,13 +38,13 @@ static void printBoard(char **b, size_t n) {
   }
 }
 
-static void remember(History *h, char **b, Points *p) {
+static void remember(History *h, char **b, Move *p) {
   h->lastBef = b[p->x0][p->y0];
   h->lastMid = b[p->mx][p->my];
   h->lastAft = b[p->x1][p->y1];
 }
 
-static void undo(char **b, Points *p, History *h) {
+static void undo(char **b, Move *p, History *h) {
   char bef = h->lastBef, mid = h->lastMid, aft = h->lastAft;
   remember(h, b, p);
   b[p->x0][p->y0] = bef;
@@ -47,7 +52,7 @@ static void undo(char **b, Points *p, History *h) {
   b[p->x1][p->y1] = aft;
 }
 
-static void move(char **b, char *colors, Points *p, History *h, int player,
+static void move(char **b, char *colors, Move *p, History *h, int player,
                  int *counts0, int *counts1) {
   char taken = b[p->mx][p->my];
   remember(h, b, p);
@@ -98,7 +103,7 @@ static void printArr(int *counts, int n) {
 
 static void compScore(int player, int *counts0, int *counts1, int *score0,
                       int *score1) {
-  int *counts, *prevScore, min_, i, score;
+  int *counts, *prevScore, min_, score;
   if (player == 0) {
     counts = counts0;
     prevScore = score0;
@@ -162,7 +167,7 @@ static int gameEnds(char **b, size_t n, char *colors) {
 static void playHuman(char **b, size_t n, char *colors, int player) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
       wantsRedo = 1, score0, score1, i;
-  Points p;
+  Move p;
   char input;
   int *counts0 = calloc(N_SKIPPER, sizeof(int));
   int *counts1 = calloc(N_SKIPPER, sizeof(int));
@@ -325,3 +330,4 @@ int main() {
   free(b);
   return 0;
 }
+
