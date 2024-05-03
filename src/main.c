@@ -40,7 +40,23 @@ void moveNoMem(char **b, char *colors, Move *p) {
   b[p->x0][p->y0] = colors[0];
 }
 
-Sst *sst(Move *m, char **b, int n, char *colors) {
+void printBoard(char **b, size_t n) {
+  size_t i, j;
+  printf("\n  ");
+  for (i = 0; i < n; ++i) {
+    printf("%d ", (int)i);
+  }
+  printf("\n");
+  for (i = 0; i < n; ++i) {
+    printf("%d ", (int)i);
+    for (j = 0; j < n; ++j) {
+      printf("%c ", b[i][j]);
+    }
+    printf("\n");
+  }
+}
+
+Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
   int i, j;
   Sst *t = malloc(sizeof(Sst));
   t->move = m;
@@ -52,23 +68,12 @@ Sst *sst(Move *m, char **b, int n, char *colors) {
       t->b[i][j] = b[i][j];
     }
   }
-  moveNoMem(t->b, colors, m);
-  t->pl = -1;
+  moveNoMem(t->b, colors, t->move);
+  t->pl = pl;
   t->nChild = 0;
   t->sChild = 16;
   t->children = malloc(t->sChild * sizeof(Sst *));
   return t;
-}
-
-void printBoard(char **b, size_t n) {
-  size_t i, j;
-  printf("\n");
-  for (i = 0; i < n; ++i) {
-    for (j = 0; j < n; ++j) {
-      printf("%c ", b[i][j]);
-    }
-    printf("\n");
-  }
 }
 
 void remember(History *h, char **b, Move *p) {
@@ -302,27 +307,30 @@ void playHuman(char **b, size_t n, char *colors, int pl) {
 }
 
 void printMove(Move *m) {
-  printf("[(%d, %d), (%d, %d), (%d, %d)]\n", m->x0, m->y0, m->mx, m->my, m->x1,
+  printf("[(%d, %d), (%d, %d), (%d, %d)]", m->x0, m->y0, m->mx, m->my, m->x1,
          m->y1);
 }
 
-void printSubsst(Sst *r) {
+void printSubsst(Sst *r, int indent) {
   if (r) {
-    int i;
+    int i, j;
     printMove(r->move);
+    printf(" ( %p )\n", r);
     for (i = 0; i < r->nChild; ++i) {
-      printf("\t");
-      printSubsst(r->children[i]);
+      for (j = 0; j < indent; ++j) {
+        printf("\t");
+      }
+      printSubsst(r->children[i], indent + 1);
     }
   }
 }
 
 void printSst(Sst *r) {
   printf("\nSst:\n");
-  printSubsst(r);
+  printSubsst(r, 1);
 }
 
-Move *makeMove(int x0, int y0, int x1, int y1) {
+Move *initMove(int x0, int y0, int x1, int y1) {
   Move *m = malloc(sizeof(Move));
   m->x0 = x0;
   m->y0 = y0;
@@ -338,8 +346,10 @@ void insert(Sst *r, Move *m, int pl, char *colors) {
     r->sChild *= 2;
     r->children = realloc(r->children, r->sChild);
   }
-  *child = sst(m, r->b, r->n, colors);
+  *child = sst(m, r->b, r->n, colors, pl);
   (*child)->pl = pl;
+  printf("\nNew board: ");
+  printBoard((*child)->b, (*child)->n);
 }
 
 void freeSst(Sst *r) {
@@ -354,9 +364,6 @@ void freeSst(Sst *r) {
   }
   free(r->b);
   free(r);
-}
-
-void compSsts(Sst **roots, char **b, int *nRoot, int *sRoot) {
 }
 
 char **initB(char **b, size_t n, char *colors) {
@@ -378,30 +385,48 @@ char **initB(char **b, size_t n, char *colors) {
   return b;
 }
 
-void printSsts(Sst **roots, int n) {
-  int i;
-  for (i = 0; i < n; ++i) {
-    printSst(roots[i]);
+void compSst(Sst *r, char *colors) {
+  int i, j;
+  int pl = 1;
+  /* printf("\ncompSet: initial board:\n"); */
+  /* printBoard(r->b, r->n); */
+  /* printf("\nRoot pointer: %p\n", r); */
+  for (i = 0; i < r->n; ++i) {
+    for (j = 0; j < r->n; ++j) {
+      if (r->b[i][j] != colors[0]) {
+        if (canMove(r->b, r->n, colors, i, j, 1, 0)) {
+          insert(r, initMove(i, j, i + 2, j), pl, colors);
+          /* for (i = 0; i < r->nChild; ++i) { */
+          /*     printf("%p ", r->children[i]); */
+          /* } */
+          compSst(r->children[r->nChild - 1], colors);
+        } else if (canMove(r->b, r->n, colors, i, j, 0, 1)) {
+          insert(r, initMove(i, j, i, j + 2), pl, colors);
+          compSst(r->children[r->nChild - 1], colors);
+        } else if (canMove(r->b, r->n, colors, i, j, -1, 0)) {
+          insert(r, initMove(i, j, i - 2, j), pl, colors);
+          compSst(r->children[r->nChild - 1], colors);
+        } else if (canMove(r->b, r->n, colors, i, j, 0, -1)) {
+          insert(r, initMove(i, j, i, j - 2), pl, colors);
+          compSst(r->children[r->nChild - 1], colors);
+        }
+      }
+    }
   }
-}
-
-void freeSsts(Sst **roots, int n) {
-  int i;
-  for (i = 0; i < n; ++i) {
-    freeSst(roots[i]);
-  }
-  free(roots);
 }
 
 void testAlgo(char *colors) {
-  int nRoot, sRoot = 16;
-  Sst **roots = malloc(sRoot * sizeof(Sst *));
+  int pl = 0;
+  Sst *r;
   char **b = NULL;
-  size_t n = 6;
+  size_t n = 4;
   b = initB(b, n, colors);
-  compSsts(roots, b, &nRoot, &sRoot);
-  printSsts(roots, nRoot);
-  freeSsts(roots, nRoot);
+  printf("\nInitial board: \n");
+  printBoard(b, n);
+  r = sst(initMove(0, 2, 2, 2), b, n, colors, pl);
+  compSst(r, colors);
+  /* printSst(r); */
+  freeSst(r);
   exit(EXIT_SUCCESS);
 }
 
