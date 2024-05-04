@@ -406,6 +406,8 @@ char *serialize(char **b, int pl, int n) {
     }
   }
   res[k++] = pl + '0';
+  printf("\nserialize: res: %s\n", res);
+  printf("\nlength of res: %lu\n", strlen(res));
   return res;
 }
 
@@ -501,7 +503,7 @@ int compHashIdx(int h1Val, int h2Val, int i, int hashLen) {
 int add(HashEntry *hash, int hashLen, double loadF, char *str, int strLen,
         int *nFilled) {
   int key;
-  int i = 0;
+  int i = 0, j;
   int inserted = 0;
   int hashIdx;
   int h1Val;
@@ -512,22 +514,34 @@ int add(HashEntry *hash, int hashLen, double loadF, char *str, int strLen,
   h2Val = h2(key, strLen);
   while (inserted == 0 && exists == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
-    printf("\nadd: hashIdx: %d\n", hashIdx);
+
+    if (hash[hashIdx].str) {
+      printf("\nhash[hashIdx].str: %p, str: %p\n", hash[hashIdx].str, str);
+      printf("length: %lu", strlen(hash[hashIdx].str));
+      printf("\n\n");
+      for (j = 0; j < strlen(hash[hashIdx].str); ++j) {
+        printf("'%c'", hash[hashIdx].str[j]);
+      }
+      printf("\n");
+      printf("\nadd: str: %s, hash[hashIdx].str: %s\n", str, hash[hashIdx].str);
+    }
+
     if (hash[hashIdx].str == 0) {
       hash[hashIdx].str = str;
       inserted = 1;
     } else if (strcmp(hash[hashIdx].str, str) == 0) {
+      printf("\nadd: exists\n");
       exists = 1;
     }
     ++i;
   }
   if (inserted == 1) {
     ++*nFilled;
-    /* printf("\nnFilled: %d\n", *nFilled); */
+    printf("\nnFilled: %d\n", *nFilled);
   } else if (exists == 1) {
     hashIdx = -1;
   } else {
-    hashIdx = -1;
+    hashIdx = -2;
   }
   return hashIdx;
 }
@@ -544,7 +558,7 @@ int search(HashEntry *hash, int hashLen, double loadF, char *str, int strLen) {
   h2Val = h2(key, hashLen);
   while (found == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
-    printf("\nsearch: hashIdx: %d\n", hashIdx);
+    /* printf("\nhashIdx: %d\n", hashIdx); */
     /* printf("\nhash[hashIdx].str: %p\n", hash[hashIdx].str); */
     if (hash[hashIdx].str != 0 && strcmp(hash[hashIdx].str, str) == 0) {
       found = 1;
@@ -572,6 +586,7 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert,
                 Move *m = initMove(i, j, i + 2 * k, j + 2 * z);
                 char *row;
                 int rowLen = r->n * r->n + 1;
+                int addedIdx = 0;
                 newB = copyB(r->b, r->n);
                 moveNoMem(newB, colors, m);
                 if (useCache) {
@@ -594,20 +609,28 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert,
                   /* } */
 
                   row = serialize(newB, pl, r->n);
-                  if (search(hash, hashLen, loadF, row, rowLen) == 0) {
-                    add(hash, hashLen, loadF, row, r->n * r->n + 1, nFilled);
+                  addedIdx = add(hash, hashLen, loadF, row, rowLen, nFilled);
+                  if (addedIdx == -2) {
+                      printf("\nAdd failed\n");
+                      exit(EXIT_FAILURE);
+                  }
+                  if (addedIdx > 0) {
                     insert(r, m, newB, pl, colors);
                     ++*nInsert;
-                    /* printf("\nnInsert: %d\n", *nInsert); */
+                    printf("\nnInsert: %d\n", *nInsert);
                     compSst(r->children[r->nChild - 1], colors, cache, useCache,
                             nInsert, hash, hashLen, loadF, nFilled);
-                  } else {
                     free(row);
+                  } else {
+                    free(m);
                     for (q = 0; q < r->n; ++q) {
                       free(newB[q]);
                     }
-                    free(m);
                     free(newB);
+                    free(row);
+                  }
+                  if (addedIdx > 0) {
+                      /* free(row); */
                   }
                 } else {
                   insert(r, m, newB, pl, colors);
@@ -659,16 +682,24 @@ int compHashLen(int n, double lf) {
   return m;
 }
 
+void freeHash(HashEntry *hash, int hashLen) {
+  int i;
+  for (i = 0; i < hashLen; ++i) {
+    free(hash[i].str);
+  }
+  free(hash);
+}
+
 void testAlgo(char *colors) {
   int pl = 0, i;
   Sst *r;
   char **b = NULL;
-  size_t n = 5;
+  size_t n = 4;
   Cache *cache = newCache();
   int nInsert = 0;
   int usesCache = 1;
-  int nEntry = 1000000;
-  double loadF = 0.5;
+  int nEntry = 100000;
+  double loadF = 0.95;
   int hashLen = compHashLen(nEntry, loadF);
   Move *m = initMove(0, 2, 2, 2);
   HashEntry *hash;
@@ -676,10 +707,11 @@ void testAlgo(char *colors) {
   printf("\nhashLen: %d\n", hashLen);
   b = initB(b, n, colors);
   hash = calloc(hashLen, sizeof(HashEntry));
-  /* printf("\nHash: \n"); */
-  /* for (i = 0; i < hashLen; ++i) { */
-  /*     printf("%p ", &(hash[i])); */
-  /* } */
+  printf("\nHash: \n");
+  for (i = 0; i < hashLen; ++i) {
+      /* hash[i].str = NULL; */
+      printf("%p ", hash[i].str);
+  }
   moveNoMem(b, colors, m);
   printf("\nInitial board: \n");
   printBoard(b, n);
@@ -689,12 +721,13 @@ void testAlgo(char *colors) {
   } else {
     printf("\nDoes not use cache\n");
   }
-  compSst(r, colors, cache, usesCache, &nInsert, hash, hashLen, loadF, &nFilled);
+  compSst(r, colors, cache, usesCache, &nInsert, hash, hashLen, loadF,
+          &nFilled);
   printf("\nInsert count: %d\n", nInsert);
   /* printSst(r); */
   freeSst(r);
   freeCache(cache);
-  free(hash);
+  freeHash(hash, hashLen);
   exit(EXIT_SUCCESS);
 }
 
