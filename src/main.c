@@ -490,6 +490,7 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert) {
                     addToCache(cache, r->n, pl, row);
                     insert(r, m, newB, pl, colors);
                     ++*nInsert;
+                    printf("\nnInsert: %d\n", *nInsert);
                     compSst(r->children[r->nChild - 1], colors, cache, useCache,
                             nInsert);
                   } else {
@@ -503,6 +504,7 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert) {
                 } else {
                   insert(r, m, newB, pl, colors);
                   ++*nInsert;
+                  printf("\nnInsert: %d\n", *nInsert);
                   compSst(r->children[r->nChild - 1], colors, cache, useCache,
                           nInsert);
                 }
@@ -510,28 +512,6 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert) {
             }
           }
         }
-        /* if (canMove(r->b, r->n, colors, i, j, 1, 0)) { */
-        /*     char **newB = copyB(r->b, r->n); */
-        /*   insert(r, initMove(i, j, i + 2, j), pl, colors); */
-        /*   ++*nInsert; */
-        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
-         * nInsert); */
-        /* } else if (canMove(r->b, r->n, colors, i, j, 0, 1)) { */
-        /*   insert(r, initMove(i, j, i, j + 2), pl, colors); */
-        /*   ++*nInsert; */
-        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
-         * nInsert); */
-        /* } else if (canMove(r->b, r->n, colors, i, j, -1, 0)) { */
-        /*   insert(r, initMove(i, j, i - 2, j), pl, colors); */
-        /*   ++*nInsert; */
-        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
-         * nInsert); */
-        /* } else if (canMove(r->b, r->n, colors, i, j, 0, -1)) { */
-        /*   insert(r, initMove(i, j, i, j - 2), pl, colors); */
-        /*   ++*nInsert; */
-        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
-         * nInsert); */
-        /* } */
       }
     }
   }
@@ -552,7 +532,7 @@ void testAlgo(char *colors) {
   size_t n = 5;
   Cache *cache = newCache();
   int nInsert = 0;
-  int usesCache = 1;
+  int usesCache = 0;
   b = initB(b, n, colors);
   Move *m = initMove(0, 2, 2, 2);
   moveNoMem(b, colors, m);
