@@ -75,7 +75,6 @@ char **copyB(char **b, int n) {
 }
 
 Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
-  int i, j;
   Sst *t = malloc(sizeof(Sst));
   t->move = m;
   t->b = b;
@@ -589,21 +588,6 @@ int main() {
     scanf(" %lu", &n);
 
     b = initB(b, n, colors);
-
-    /* b = malloc(n * sizeof(char *)); */
-    /* for (i = 0; i < n; ++i) { */
-    /*   b[i] = malloc(n * sizeof(char)); */
-    /* } */
-    /* for (i = 0; i < n; ++i) { */
-    /*   for (j = 0; j < n; ++j) { */
-    /*     b[i][j] = colors[rand() % N_SKIPPER + 1]; */
-    /*   } */
-    /* } */
-    /* for (i = n / 2 - 1; i <= n / 2; ++i) { */
-    /*   for (j = n / 2 - 1; j <= n / 2; ++j) { */
-    /*     b[i][j] = colors[0]; */
-    /*   } */
-    /* } */
   }
   printf("\nBoard: \n");
   printBoard(b, n);
