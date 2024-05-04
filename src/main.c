@@ -9,9 +9,9 @@
 #define N_SKIPPER 5
 
 typedef struct {
-    int nVal;
-    int sVal;
-    char **vals;
+  int nVal;
+  int sVal;
+  char **vals;
 } Cache;
 
 typedef struct {
@@ -62,19 +62,24 @@ void printBoard(char **b, size_t n) {
   }
 }
 
+char **copyB(char **b, int n) {
+  int i, j;
+  char **newB = malloc(n * sizeof(char *));
+  for (i = 0; i < n; ++i) {
+    newB[i] = malloc(n * sizeof(char));
+    for (j = 0; j < n; ++j) {
+      newB[i][j] = b[i][j];
+    }
+  }
+  return newB;
+}
+
 Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
   int i, j;
   Sst *t = malloc(sizeof(Sst));
   t->move = m;
-  t->b = malloc(n * sizeof(char *));
+  t->b = b;
   t->n = n;
-  for (i = 0; i < t->n; ++i) {
-    t->b[i] = malloc(t->n * sizeof(char));
-    for (j = 0; j < t->n; ++j) {
-      t->b[i][j] = b[i][j];
-    }
-  }
-  moveNoMem(t->b, colors, t->move);
   t->pl = pl;
   t->nChild = 0;
   t->sChild = 16;
@@ -346,16 +351,14 @@ Move *initMove(int x0, int y0, int x1, int y1) {
   return m;
 }
 
-void insert(Sst *r, Move *m, int pl, char *colors) {
+void insert(Sst *r, Move *m, char **b, int pl, char *colors) {
   Sst **child = &(r->children[r->nChild++]);
   if (r->nChild >= r->sChild) {
     r->sChild *= 2;
-    r->children = realloc(r->children, r->sChild);
+    r->children = realloc(r->children, r->sChild * sizeof(Sst *));
   }
-  *child = sst(m, r->b, r->n, colors, pl);
+  *child = sst(m, b, r->n, colors, pl);
   (*child)->pl = pl;
-  printf("\nNew board: ");
-  printBoard((*child)->b, (*child)->n);
 }
 
 void freeSst(Sst *r) {
@@ -392,64 +395,79 @@ char **initB(char **b, size_t n, char *colors) {
 }
 
 char *serialize(char **b, int pl, int n) {
-    int i, j = 0, k = 0;
-    char *res = malloc((n * n + 1) * sizeof(char));
-    for (i = 0; i < n; ++i) {
-        for (j = 0; j < n; ++j) {
-            res[k++] = b[i][j];
-        }
+  int i, j = 0, k = 0;
+  char *res = malloc((n * n + 1) * sizeof(char));
+  for (i = 0; i < n; ++i) {
+    for (j = 0; j < n; ++j) {
+      res[k++] = b[i][j];
     }
-    res[k++] = pl + '0';
-    return res;
+  }
+  res[k++] = pl + '0';
+  return res;
 }
 
-void addToCache(Cache *cache, char **b, int n, int pl) {
-    char *row = serialize(b, pl, n);
-    if (cache->nVal + 1 >= cache->sVal) {
-        cache->sVal *= 2;
-        cache->vals = realloc(cache->vals, cache->sVal);
-    }
-    cache->vals[cache->nVal++] = row;
+void addToCache(Cache *cache, int n, int pl, char *row) {
+  int i;
+  if (cache->nVal >= cache->sVal) {
+    /* printf("\nnVal: %d\n", cache->nVal); */
+    /* printf("\nsVal: %d\n", cache->sVal); */
+    /* printf("\nBefore realloc: \n"); */
+    /* for (i = 0; i < cache->sVal; ++i) { */
+    /*     printf("%p\n", cache->vals[i]); */
+    /* } */
+    cache->sVal *= 2;
+    /* printf("\nvals before: %p\n", cache->vals); */
+    cache->vals = realloc(cache->vals, cache->sVal * sizeof(char *));
+    /* printf("\nvals after: %p\n", cache->vals); */
+    /* printf("\nAfter realloc: \n"); */
+    /* for (i = 0; i < cache->sVal; ++i) { */
+    /*     printf("%p\n", cache->vals[i]); */
+    /* } */
+  }
+  /* printf("\nnVal: %d, sVal: %d\n", cache->nVal, cache->sVal); */
+  cache->vals[cache->nVal] = row;
+  ++(cache->nVal);
 }
 
 int compCharArr(char *arr1, char *arr2, int n) {
-    int i;
-    int eq = 1;
-    for (i = 0; i < n && eq; ++i) {
-        if (arr1[i] != arr2[i]) {
-            eq = 0;
-        }
+  int i;
+  int eq = 1;
+  /* printf("\narr1: %p, arr2: %p\n", arr1, arr2); */
+  for (i = 0; i < n && eq; ++i) {
+    if (arr1[i] != arr2[i]) {
+      eq = 0;
     }
-    return eq;
+  }
+  return eq;
 }
 
-int inCache(Cache *cache, char **b, int n, int pl) {
-    char *row = serialize(b, pl, n);
-    int isIn = 0, i;
-    for (i = 0; i < n && !isIn; ++i) {
-        if (compCharArr(row, cache->vals[i], n)) {
-            isIn = 1;
-        }
+int inCache(Cache *cache, char **b, int n, int pl, char *row) {
+  int isIn = 0, i;
+  int rowLen = n * n + 1;
+  for (i = 0; i < cache->nVal && !isIn; ++i) {
+    if (compCharArr(row, cache->vals[i], rowLen)) {
+      isIn = 1;
     }
-    free(row);
-    return isIn;
-}
-
-void cacheIfNew(Cache *cache, char **b, int n, int pl) {
-    if (inCache(cache, b, n, pl)) {
-        addToCache(cache, b, n, pl);
-    }
+  }
+  /* if (isIn) { */
+  /*     printf("\nIs in cache\n"); */
+  /* } */
+  return isIn;
 }
 
 void freeCache(Cache *cache) {
-    int i;
-    for (i = 0; i < cache->nVal; ++i) {
-        free(cache->vals[i]);
-    }
+  int i;
+  /* printf("\nFreeing cache\n"); */
+  for (i = 0; i < cache->nVal; ++i) {
+    /* printf("\nFreeing vals[%d]\n", i); */
+    free(cache->vals[i]);
+  }
+  free(cache->vals);
+  free(cache);
 }
 
-void compSst(Sst *r, char *colors, Cache *cache) {
-  int i, j;
+void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert) {
+  int i, j, k, z, q;
   int pl = 1;
   /* printf("\ncompSet: initial board:\n"); */
   /* printBoard(r->b, r->n); */
@@ -457,41 +475,98 @@ void compSst(Sst *r, char *colors, Cache *cache) {
   for (i = 0; i < r->n; ++i) {
     for (j = 0; j < r->n; ++j) {
       if (r->b[i][j] != colors[0]) {
-        if (canMove(r->b, r->n, colors, i, j, 1, 0)) {
-          insert(r, initMove(i, j, i + 2, j), pl, colors);
-          /* for (i = 0; i < r->nChild; ++i) { */
-          /*     printf("%p ", r->children[i]); */
-          /* } */
-          compSst(r->children[r->nChild - 1], colors, cache);
-        } else if (canMove(r->b, r->n, colors, i, j, 0, 1)) {
-          insert(r, initMove(i, j, i, j + 2), pl, colors);
-          compSst(r->children[r->nChild - 1], colors, cache);
-        } else if (canMove(r->b, r->n, colors, i, j, -1, 0)) {
-          insert(r, initMove(i, j, i - 2, j), pl, colors);
-          compSst(r->children[r->nChild - 1], colors, cache);
-        } else if (canMove(r->b, r->n, colors, i, j, 0, -1)) {
-          insert(r, initMove(i, j, i, j - 2), pl, colors);
-          compSst(r->children[r->nChild - 1], colors, cache);
+        for (k = -1; k <= 1; ++k) {
+          for (z = -1; z <= 1; ++z) {
+            if (abs(k) != abs(z)) {
+              if (canMove(r->b, r->n, colors, i, j, k, z)) {
+                char **newB;
+                Move *m = initMove(i, j, i + 2 * k, j + 2 * z);
+                char *row;
+                newB = copyB(r->b, r->n);
+                moveNoMem(newB, colors, m);
+                if (useCache) {
+                  row = serialize(newB, pl, r->n);
+                  if (!inCache(cache, newB, r->n, pl, row)) {
+                    addToCache(cache, r->n, pl, row);
+                    insert(r, m, newB, pl, colors);
+                    ++*nInsert;
+                    compSst(r->children[r->nChild - 1], colors, cache, useCache,
+                            nInsert);
+                  } else {
+                    free(row);
+                    for (q = 0; q < r->n; ++q) {
+                      free(newB[q]);
+                    }
+                    free(m);
+                    free(newB);
+                  }
+                } else {
+                  insert(r, m, newB, pl, colors);
+                  ++*nInsert;
+                  compSst(r->children[r->nChild - 1], colors, cache, useCache,
+                          nInsert);
+                }
+              }
+            }
+          }
         }
+        /* if (canMove(r->b, r->n, colors, i, j, 1, 0)) { */
+        /*     char **newB = copyB(r->b, r->n); */
+        /*   insert(r, initMove(i, j, i + 2, j), pl, colors); */
+        /*   ++*nInsert; */
+        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
+         * nInsert); */
+        /* } else if (canMove(r->b, r->n, colors, i, j, 0, 1)) { */
+        /*   insert(r, initMove(i, j, i, j + 2), pl, colors); */
+        /*   ++*nInsert; */
+        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
+         * nInsert); */
+        /* } else if (canMove(r->b, r->n, colors, i, j, -1, 0)) { */
+        /*   insert(r, initMove(i, j, i - 2, j), pl, colors); */
+        /*   ++*nInsert; */
+        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
+         * nInsert); */
+        /* } else if (canMove(r->b, r->n, colors, i, j, 0, -1)) { */
+        /*   insert(r, initMove(i, j, i, j - 2), pl, colors); */
+        /*   ++*nInsert; */
+        /*   compSst(r->children[r->nChild - 1], colors, cache, useCache,
+         * nInsert); */
+        /* } */
       }
     }
   }
+}
+
+Cache *newCache() {
+  Cache *cache = malloc(sizeof(Cache));
+  cache->sVal = 16;
+  cache->vals = malloc(cache->sVal * sizeof(char *));
+  cache->nVal = 0;
+  return cache;
 }
 
 void testAlgo(char *colors) {
   int pl = 0;
   Sst *r;
   char **b = NULL;
-  size_t n = 4;
-  Cache *cache = malloc(sizeof(Cache));
+  size_t n = 5;
+  Cache *cache = newCache();
+  int nInsert = 0;
+  int usesCache = 1;
   b = initB(b, n, colors);
-  addToCache(cache, b, n, pl);
+  Move *m = initMove(0, 2, 2, 2);
+  moveNoMem(b, colors, m);
   printf("\nInitial board: \n");
   printBoard(b, n);
-  r = sst(initMove(0, 2, 2, 2), b, n, colors, pl);
-  compSst(r, colors, cache);
+  r = sst(m, b, n, colors, pl);
+  if (usesCache) {
+    printf("\nUses cache\n");
+  } else {
+    printf("\nDoes not use cache\n");
+  }
+  compSst(r, colors, cache, usesCache, &nInsert);
+  printf("\nInsert count: %d\n", nInsert);
   /* printSst(r); */
-  free(cache);
   freeSst(r);
   freeCache(cache);
   exit(EXIT_SUCCESS);
