@@ -670,7 +670,6 @@ void testAlgo(char *colors) {
   Sst *r;
   char **b = NULL;
   size_t n = 6;
-  /* Cache *cache = newCache(); */
   int nInsert = 0;
   int usesCache = 1;
   int nEntry = 1000000;
