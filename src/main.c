@@ -408,21 +408,8 @@ static char *serialize(char **b, int pl, size_t n) {
     }
   }
   res[k++] = (char)pl + '0';
-  /* printf("\nserialize: res: %s\n", res); */
-  /* printf("\nlength of res: %lu\n", strlen(res)); */
   return res;
 }
-
-/* static int compCharArr(char *arr1, char *arr2, int n) { */
-/*   int i; */
-/*   int eq = 1; */
-/*   for (i = 0; i < n && eq; ++i) { */
-/*     if (arr1[i] != arr2[i]) { */
-/*       eq = 0; */
-/*     } */
-/*   } */
-/*   return eq; */
-/* } */
 
 static size_t strToNum(char *str, size_t strLen) {
   double num = 0;
@@ -435,6 +422,9 @@ static size_t strToNum(char *str, size_t strLen) {
     int charVal;
     charVal = str[i] - '0' + 1;
     num = num + powerRes * charVal;
+  }
+  while (num >= INT_MAX) {
+      num -= INT_MAX;
   }
   res = (size_t)num;
   return res;
@@ -596,7 +586,6 @@ static void testAlgo(char *colors) {
   Move *m = initMove(0, 2, 2, 2);
   size_t nFilled = 0;
   char **hash;
-  printf("\nhashLen: %lu\n", hashLen);
   b = initB(b, n, colors);
   hash = calloc(hashLen, sizeof(char *));
   moveNoMem(b, colors, m);
@@ -609,6 +598,7 @@ static void testAlgo(char *colors) {
     printf("\nDoes not use cache\n");
   }
   compSst(r, colors, usesHash, &nInsert, hash, hashLen, loadF, &nFilled);
+  /* printSst(r); */
   printf("\nInsert count: %lu\n", nInsert);
   freeSst(r);
   freeHash(hash, hashLen);
