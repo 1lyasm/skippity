@@ -595,8 +595,10 @@ void compSst(Sst *r, char *colors, int useCache, int *nInsert, char **hash,
                     insert(r, m, newB, pl, colors);
                     ++*nInsert;
                     printf("\nnInsert: %d\n", *nInsert);
-                    compSst(r->children[r->nChild - 1], colors, useCache,
-                            nInsert, hash, hashLen, loadF, nFilled);
+                    if (rand() % 10 == 0) {
+                        compSst(r->children[r->nChild - 1], colors, useCache,
+                                nInsert, hash, hashLen, loadF, nFilled);
+                    }
                   } else {
                     free(row);
                     for (q = 0; q < r->n; ++q) {
@@ -667,12 +669,12 @@ void testAlgo(char *colors) {
   int pl = 0, i;
   Sst *r;
   char **b = NULL;
-  size_t n = 5;
+  size_t n = 6;
   /* Cache *cache = newCache(); */
   int nInsert = 0;
   int usesCache = 1;
   int nEntry = 1000000;
-  double loadF = 0.01;
+  double loadF = 0.1;
   int hashLen = compHashLen(nEntry, loadF);
   Move *m = initMove(0, 2, 2, 2);
   int nFilled = 0;
