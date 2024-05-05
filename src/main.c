@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -27,10 +28,10 @@ typedef struct {
 typedef struct Sst {
   Move *move;
   char **b;
-  int n;
-  int pl;
-  int nChild;
-  int sChild;
+  size_t n;
+  size_t pl;
+  size_t nChild;
+  size_t sChild;
   struct Sst **children;
 } Sst;
 
@@ -40,13 +41,13 @@ typedef struct {
   char lastAft;
 } History;
 
-void moveNoMem(char **b, char *colors, Move *p) {
+static void moveNoMem(char **b, char *colors, Move *p) {
   b[p->mx][p->my] = colors[0];
   b[p->x1][p->y1] = b[p->x0][p->y0];
   b[p->x0][p->y0] = colors[0];
 }
 
-void printBoard(char **b, size_t n) {
+static void printBoard(char **b, size_t n) {
   size_t i, j;
   printf("\n  ");
   for (i = 0; i < n; ++i) {
@@ -62,7 +63,7 @@ void printBoard(char **b, size_t n) {
   }
 }
 
-char **copyB(char **b, int n) {
+static char **copyB(char **b, size_t n) {
   int i, j;
   char **newB = malloc(n * sizeof(char *));
   for (i = 0; i < n; ++i) {
@@ -74,7 +75,7 @@ char **copyB(char **b, int n) {
   return newB;
 }
 
-Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
+static Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
   Sst *t = malloc(sizeof(Sst));
   t->move = m;
   t->b = b;
@@ -86,13 +87,13 @@ Sst *sst(Move *m, char **b, int n, char *colors, int pl) {
   return t;
 }
 
-void remember(History *h, char **b, Move *p) {
+static void remember(History *h, char **b, Move *p) {
   h->lastBef = b[p->x0][p->y0];
   h->lastMid = b[p->mx][p->my];
   h->lastAft = b[p->x1][p->y1];
 }
 
-void undo(char **b, Move *p, History *h) {
+static void undo(char **b, Move *p, History *h) {
   char bef = h->lastBef, mid = h->lastMid, aft = h->lastAft;
   remember(h, b, p);
   b[p->x0][p->y0] = bef;
@@ -100,7 +101,7 @@ void undo(char **b, Move *p, History *h) {
   b[p->x1][p->y1] = aft;
 }
 
-void move(char **b, char *colors, Move *p, History *h, int pl, int *counts0,
+static void move(char **b, char *colors, Move *p, History *h, int pl, int *counts0,
           int *counts1) {
   char taken = b[p->mx][p->my];
   remember(h, b, p);
@@ -114,7 +115,7 @@ void move(char **b, char *colors, Move *p, History *h, int pl, int *counts0,
   }
 }
 
-void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo, int *hPos) {
+static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo, int *hPos) {
   char continues;
   printf("\nDo you want to play another move ('y': yes, 'n': no)? ");
   scanf(" %c", &continues);
@@ -129,7 +130,7 @@ void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo, int *hPos) {
   *hPos = 0;
 }
 
-int findMin(int *arr, int n) {
+static int findMin(int *arr, int n) {
   int min_ = INT_MAX, i;
   for (i = 0; i < n; ++i) {
     if (arr[i] < min_) {
@@ -139,7 +140,7 @@ int findMin(int *arr, int n) {
   return min_;
 }
 
-void printArr(int *counts, int n) {
+static void printArr(int *counts, int n) {
   int i;
   printf("\n");
   for (i = 0; i < n; ++i) {
@@ -148,7 +149,7 @@ void printArr(int *counts, int n) {
   printf("\n");
 }
 
-void compScore(int pl, int *counts0, int *counts1, int *score0, int *score1) {
+static void compScore(int pl, int *counts0, int *counts1, int *score0, int *score1) {
   int *counts, *prevScore, min_, score;
   if (pl == 0) {
     counts = counts0;
@@ -164,7 +165,7 @@ void compScore(int pl, int *counts0, int *counts1, int *score0, int *score1) {
   *prevScore = score;
 }
 
-void save(char **b, size_t n, int pl) {
+static void save(char **b, size_t n, int pl) {
   char *buf = calloc((size_t)(n * n + 2), sizeof(char));
   size_t i, j, k = 0;
   FILE *outf;
@@ -180,18 +181,18 @@ void save(char **b, size_t n, int pl) {
   free(buf);
 }
 
-int inBoard(int x, int y, size_t n) {
+static int inBoard(int x, int y, size_t n) {
   int n2 = (int)n;
   return x >= 0 && x < n2 && y >= 0 & y < n2;
 }
 
-int canMove(char **b, size_t n, char *colors, int i, int j, int di, int dj) {
+static int canMove(char **b, size_t n, char *colors, int i, int j, int di, int dj) {
   return inBoard(i + di, j + dj, n) && inBoard(i + 2 * di, j + 2 * dj, n) &&
          b[i + di][j + dj] != colors[0] &&
          b[i + 2 * di][j + 2 * dj] == colors[0];
 }
 
-int gameEnds(char **b, size_t n, char *colors) {
+static int gameEnds(char **b, size_t n, char *colors) {
   int ends = 1;
   int i, j;
   for (i = 0; i < (int)n && ends; ++i) {
@@ -209,12 +210,12 @@ int gameEnds(char **b, size_t n, char *colors) {
   return ends;
 }
 
-void setMiddle(Move *m) {
+static void setMiddle(Move *m) {
   m->mx = (m->x0 + m->x1) / 2;
   m->my = (m->y0 + m->y1) / 2;
 }
 
-void playHuman(char **b, size_t n, char *colors, int pl) {
+static void playHuman(char **b, size_t n, char *colors, int pl) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
       wantsRedo = 1, score0, score1, i;
   Move p;
@@ -316,12 +317,12 @@ void playHuman(char **b, size_t n, char *colors, int pl) {
   free(counts1);
 }
 
-void printMove(Move *m) {
+static void printMove(Move *m) {
   printf("[(%d, %d), (%d, %d), (%d, %d)]", m->x0, m->y0, m->mx, m->my, m->x1,
          m->y1);
 }
 
-void printSubsst(Sst *r, int indent) {
+static void printSubsst(Sst *r, int indent) {
   if (r) {
     int i, j;
     printMove(r->move);
@@ -335,12 +336,12 @@ void printSubsst(Sst *r, int indent) {
   }
 }
 
-void printSst(Sst *r) {
+static void printSst(Sst *r) {
   printf("\nSst:\n");
   printSubsst(r, 1);
 }
 
-Move *initMove(int x0, int y0, int x1, int y1) {
+static Move *initMove(int x0, int y0, int x1, int y1) {
   Move *m = malloc(sizeof(Move));
   m->x0 = x0;
   m->y0 = y0;
@@ -350,7 +351,7 @@ Move *initMove(int x0, int y0, int x1, int y1) {
   return m;
 }
 
-void insert(Sst *r, Move *m, char **b, int pl, char *colors) {
+static void insert(Sst *r, Move *m, char **b, int pl, char *colors) {
   Sst **child = &(r->children[r->nChild++]);
   if (r->nChild >= r->sChild) {
     r->sChild *= 2;
@@ -360,7 +361,7 @@ void insert(Sst *r, Move *m, char **b, int pl, char *colors) {
   (*child)->pl = pl;
 }
 
-void freeSst(Sst *r) {
+static void freeSst(Sst *r) {
   int i;
   for (i = 0; i < r->nChild; ++i) {
     freeSst(r->children[i]);
@@ -374,7 +375,7 @@ void freeSst(Sst *r) {
   free(r);
 }
 
-char **initB(char **b, size_t n, char *colors) {
+static char **initB(char **b, size_t n, char *colors) {
   int i, j;
   b = malloc(n * sizeof(char *));
   for (i = 0; i < n; ++i) {
@@ -393,7 +394,7 @@ char **initB(char **b, size_t n, char *colors) {
   return b;
 }
 
-char *serialize(char **b, int pl, int n) {
+static char *serialize(char **b, int pl, int n) {
   int i, j = 0, k = 0;
   char *res = calloc((n * n + 2), sizeof(char));
   for (i = 0; i < n; ++i) {
@@ -407,33 +408,19 @@ char *serialize(char **b, int pl, int n) {
   return res;
 }
 
-void addToCache(Cache *cache, int n, int pl, char *row) {
+static void addToCache(Cache *cache, int n, int pl, char *row) {
   int i;
   if (cache->nVal >= cache->sVal) {
-    /* printf("\nnVal: %d\n", cache->nVal); */
-    /* printf("\nsVal: %d\n", cache->sVal); */
-    /* printf("\nBefore realloc: \n"); */
-    /* for (i = 0; i < cache->sVal; ++i) { */
-    /*     printf("%p\n", cache->vals[i]); */
-    /* } */
     cache->sVal *= 2;
-    /* printf("\nvals before: %p\n", cache->vals); */
     cache->vals = realloc(cache->vals, cache->sVal * sizeof(char *));
-    /* printf("\nvals after: %p\n", cache->vals); */
-    /* printf("\nAfter realloc: \n"); */
-    /* for (i = 0; i < cache->sVal; ++i) { */
-    /*     printf("%p\n", cache->vals[i]); */
-    /* } */
   }
-  /* printf("\nnVal: %d, sVal: %d\n", cache->nVal, cache->sVal); */
   cache->vals[cache->nVal] = row;
   ++(cache->nVal);
 }
 
-int compCharArr(char *arr1, char *arr2, int n) {
+static int compCharArr(char *arr1, char *arr2, int n) {
   int i;
   int eq = 1;
-  /* printf("\narr1: %p, arr2: %p\n", arr1, arr2); */
   for (i = 0; i < n && eq; ++i) {
     if (arr1[i] != arr2[i]) {
       eq = 0;
@@ -442,7 +429,7 @@ int compCharArr(char *arr1, char *arr2, int n) {
   return eq;
 }
 
-int inCache(Cache *cache, char **b, int n, int pl, char *row) {
+static int inCache(Cache *cache, char **b, int n, int pl, char *row) {
   int isIn = 0, i;
   int rowLen = n * n + 1;
   printf("\ncache->nVal: %d\n", cache->nVal);
@@ -451,25 +438,21 @@ int inCache(Cache *cache, char **b, int n, int pl, char *row) {
       isIn = 1;
     }
   }
-  /* if (isIn) { */
-  /*     printf("\nIs in cache\n"); */
-  /* } */
   return isIn;
 }
 
-void freeCache(Cache *cache) {
+static void freeCache(Cache *cache) {
   int i;
-  /* printf("\nFreeing cache\n"); */
   for (i = 0; i < cache->nVal; ++i) {
-    /* printf("\nFreeing vals[%d]\n", i); */
     free(cache->vals[i]);
   }
   free(cache->vals);
   free(cache);
 }
 
-int strToNum(char *str, int strLen) {
+static size_t strToNum(char *str, int strLen) {
   double num = 0;
+  size_t res;
   int i;
   int r = 3;
   for (i = 0; i < strLen; ++i) {
@@ -479,51 +462,35 @@ int strToNum(char *str, int strLen) {
     charVal = str[i] - '0' + 1;
     num = num + powerRes * charVal;
   }
-  while (num > INT_MAX) {
-    num -= INT_MAX;
-  }
-  return (int)num;
+  res = (size_t)num;
+  return num;
 }
 
-int h1(int key, int m) { return key % m; }
+static size_t h1(size_t key, size_t m) { return key % m; }
 
-int h2(int key, int hashLen) {
-  int m2 = hashLen - 2;
+static size_t h2(size_t key, size_t hashLen) {
+  size_t m2 = hashLen - 2;
   return 1 + (key % m2);
 }
 
-int compHashIdx(int h1Val, int h2Val, int i, int hashLen) {
+static int compHashIdx(int h1Val, int h2Val, int i, int hashLen) {
   return ((size_t)h1Val + (size_t)(i * h2Val)) % (size_t)hashLen;
 }
 
-int add(char **hash, int hashLen, double loadF, char *str, int strLen,
+static int add(char **hash, size_t hashLen, double loadF, char *str, int strLen,
         int *nFilled) {
-  int key;
+  size_t key;
   int i = 0, j;
   int inserted = 0;
-  int hashIdx;
-  int h1Val;
-  int h2Val;
+  size_t hashIdx;
+  size_t h1Val;
+  size_t h2Val;
   int exists = 0;
   key = strToNum(str, strLen);
   h1Val = h1(key, hashLen);
   h2Val = h2(key, hashLen);
   while (inserted == 0 && exists == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
-
-    /* if (hash[hashIdx].str) { */
-    /* printf("\nhash[hashIdx].str: %p, str: %p\n", hash[hashIdx].str, str);
-     */
-    /* printf("length: %lu", strlen(hash[hashIdx].str)); */
-    /* printf("\n\n"); */
-    /* for (j = 0; j < strlen(hash[hashIdx].str); ++j) { */
-    /*   printf("'%c'", hash[hashIdx].str[j]); */
-    /* } */
-    /* printf("\n"); */
-    /* printf("\nadd: str: %s, hash[hashIdx].str: %s\n", str,
-     * hash[hashIdx].str); */
-    /* } */
-
     if (hash[hashIdx] == 0) {
       hash[hashIdx] = str;
       inserted = 1;
@@ -535,35 +502,12 @@ int add(char **hash, int hashLen, double loadF, char *str, int strLen,
   }
   if (inserted == 1) {
     ++*nFilled;
-    /* printf("\nnFilled: %d\n", *nFilled); */
   } else if (exists == 1) {
     hashIdx = -1;
   } else {
     hashIdx = -2;
   }
   return hashIdx;
-}
-
-int search(char **hash, int hashLen, double loadF, char *str, int strLen) {
-  int key;
-  int h1Val;
-  int h2Val;
-  int found = 0;
-  int i = 0;
-  int hashIdx;
-  key = strToNum(str, strLen);
-  h1Val = h1(key, hashLen);
-  h2Val = h2(key, hashLen);
-  while (found == 0 && i < hashLen) {
-    hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
-    /* printf("\nhashIdx: %d\n", hashIdx); */
-    /* printf("\nhash[hashIdx].str: %p\n", hash[hashIdx].str); */
-    if (hash[hashIdx] != 0 && strcmp(hash[hashIdx], str) == 0) {
-      found = 1;
-    }
-    ++i;
-  }
-  return found;
 }
 
 void compSst(Sst *r, char *colors, int useCache, int *nInsert, char **hash,
@@ -596,8 +540,8 @@ void compSst(Sst *r, char *colors, int useCache, int *nInsert, char **hash,
                     ++*nInsert;
                     printf("\nnInsert: %d\n", *nInsert);
                     if (rand() % 10 == 0) {
-                        compSst(r->children[r->nChild - 1], colors, useCache,
-                                nInsert, hash, hashLen, loadF, nFilled);
+                      compSst(r->children[r->nChild - 1], colors, useCache,
+                              nInsert, hash, hashLen, loadF, nFilled);
                     }
                   } else {
                     free(row);
@@ -623,15 +567,7 @@ void compSst(Sst *r, char *colors, int useCache, int *nInsert, char **hash,
   }
 }
 
-Cache *newCache() {
-  Cache *cache = malloc(sizeof(Cache));
-  cache->sVal = 16;
-  cache->vals = malloc(cache->sVal * sizeof(char *));
-  cache->nVal = 0;
-  return cache;
-}
-
-int checkPrime(int num) {
+static int checkPrime(int num) {
   int i;
   int isPrime = 1;
   if (num <= 3) {
@@ -645,9 +581,9 @@ int checkPrime(int num) {
   return isPrime;
 }
 
-int compHashLen(int n, double lf) {
-  int quotient = (int)ceil(n / lf);
-  int m;
+static size_t compHashLen(size_t n, double lf) {
+  size_t quotient = (size_t)ceil(n / lf);
+  size_t m;
   int isPrime = 0;
   m = quotient - 1;
   while (isPrime == 0) {
@@ -657,7 +593,7 @@ int compHashLen(int n, double lf) {
   return m;
 }
 
-void freeHash(char **hash, int hashLen) {
+static void freeHash(char **hash, size_t hashLen) {
   int i;
   for (i = 0; i < hashLen; ++i) {
     free(hash[i]);
@@ -665,20 +601,20 @@ void freeHash(char **hash, int hashLen) {
   free(hash);
 }
 
-void testAlgo(char *colors) {
+static void testAlgo(char *colors) {
   int pl = 0, i;
   Sst *r;
   char **b = NULL;
   size_t n = 6;
   int nInsert = 0;
   int usesCache = 1;
-  int nEntry = 1000000;
+  size_t nEntry = 1000000;
   double loadF = 0.1;
-  int hashLen = compHashLen(nEntry, loadF);
+  size_t hashLen = compHashLen(nEntry, loadF);
   Move *m = initMove(0, 2, 2, 2);
   int nFilled = 0;
   char **hash;
-  printf("\nhashLen: %d\n", hashLen);
+  printf("\nhashLen: %lu\n", hashLen);
   b = initB(b, n, colors);
   hash = calloc(hashLen, sizeof(char *));
   moveNoMem(b, colors, m);
