@@ -191,7 +191,8 @@ static int inBoard(int x, int y, size_t n) {
 
 static int canMove(char **b, size_t n, char *colors, size_t i, size_t j, int di,
                    int dj) {
-  return inBoard((int)i + di, (int)j + dj, n) && inBoard((int)i + 2 * di, (int)j + 2 * dj, n) &&
+  return inBoard((int)i + di, (int)j + dj, n) &&
+         inBoard((int)i + 2 * di, (int)j + 2 * dj, n) &&
          b[(int)i + di][(int)j + dj] != colors[0] &&
          b[(int)i + 2 * di][(int)j + 2 * dj] == colors[0];
 }
@@ -322,8 +323,8 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
 }
 
 static void printMove(Move *m) {
-  printf("[(%lu, %lu), (%lu, %lu), (%lu, %lu)]", m->x0, m->y0, m->mx, m->my, m->x1,
-         m->y1);
+  printf("[(%lu, %lu), (%lu, %lu), (%lu, %lu)]", m->x0, m->y0, m->mx, m->my,
+         m->x1, m->y1);
 }
 
 static void printSubsst(Sst *r, size_t indent) {
@@ -487,8 +488,9 @@ static AddRes *add(char **hash, size_t hashLen, char *str, size_t strLen,
   return res;
 }
 
-static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert, char **hash,
-             size_t hashLen, double loadF, size_t *nFilled) {
+static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
+                    char **hash, size_t hashLen, double loadF,
+                    size_t *nFilled) {
   size_t i, j, q;
   int k, z;
   int pl = 1;
@@ -500,7 +502,8 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert, char **
             if (abs(k) != abs(z)) {
               if (canMove(r->b, r->n, colors, i, j, k, z)) {
                 char **newB;
-                Move *m = initMove(i, j, (size_t)((int)i + 2 * k), (size_t)((int) j + 2 * z));
+                Move *m = initMove(i, j, (size_t)((int)i + 2 * k),
+                                   (size_t)((int)j + 2 * z));
                 char *row;
                 size_t rowLen = r->n * r->n + 1;
                 AddRes *addRes;
@@ -529,6 +532,7 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert, char **
                     free(newB);
                     free(m);
                   }
+                  free(addRes);
                 } else {
                   insert(r, m, newB, pl);
                   ++*nInsert;
@@ -583,7 +587,7 @@ static void testAlgo(char *colors) {
   int pl = 0;
   Sst *r;
   char **b = NULL;
-  size_t n = 6;
+  size_t n = 5;
   size_t nInsert = 0;
   int usesHash = 1;
   size_t nEntry = 1000000;
