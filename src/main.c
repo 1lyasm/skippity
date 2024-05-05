@@ -406,8 +406,8 @@ char *serialize(char **b, int pl, int n) {
     }
   }
   res[k++] = pl + '0';
-  printf("\nserialize: res: %s\n", res);
-  printf("\nlength of res: %lu\n", strlen(res));
+  /* printf("\nserialize: res: %s\n", res); */
+  /* printf("\nlength of res: %lu\n", strlen(res)); */
   return res;
 }
 
@@ -510,34 +510,34 @@ int add(HashEntry *hash, int hashLen, double loadF, char *str, int strLen,
   int h2Val;
   int exists = 0;
   key = strToNum(str, strLen);
-  h1Val = h1(key, strLen);
-  h2Val = h2(key, strLen);
+  h1Val = h1(key, hashLen);
+  h2Val = h2(key, hashLen);
   while (inserted == 0 && exists == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
 
     if (hash[hashIdx].str) {
-      printf("\nhash[hashIdx].str: %p, str: %p\n", hash[hashIdx].str, str);
-      printf("length: %lu", strlen(hash[hashIdx].str));
-      printf("\n\n");
-      for (j = 0; j < strlen(hash[hashIdx].str); ++j) {
-        printf("'%c'", hash[hashIdx].str[j]);
-      }
-      printf("\n");
-      printf("\nadd: str: %s, hash[hashIdx].str: %s\n", str, hash[hashIdx].str);
+      /* printf("\nhash[hashIdx].str: %p, str: %p\n", hash[hashIdx].str, str); */
+      /* printf("length: %lu", strlen(hash[hashIdx].str)); */
+      /* printf("\n\n"); */
+      /* for (j = 0; j < strlen(hash[hashIdx].str); ++j) { */
+      /*   printf("'%c'", hash[hashIdx].str[j]); */
+      /* } */
+      /* printf("\n"); */
+      /* printf("\nadd: str: %s, hash[hashIdx].str: %s\n", str, hash[hashIdx].str); */
     }
 
     if (hash[hashIdx].str == 0) {
       hash[hashIdx].str = str;
       inserted = 1;
     } else if (strcmp(hash[hashIdx].str, str) == 0) {
-      printf("\nadd: exists\n");
+      /* printf("\nadd: exists\n"); */
       exists = 1;
     }
     ++i;
   }
   if (inserted == 1) {
     ++*nFilled;
-    printf("\nnFilled: %d\n", *nFilled);
+    /* printf("\nnFilled: %d\n", *nFilled); */
   } else if (exists == 1) {
     hashIdx = -1;
   } else {
@@ -609,25 +609,25 @@ void compSst(Sst *r, char *colors, Cache *cache, int useCache, int *nInsert,
                   /* } */
 
                   row = serialize(newB, pl, r->n);
-                  addedIdx = add(hash, hashLen, loadF, row, rowLen, nFilled);
-                  if (addedIdx == -2) {
-                      printf("\nAdd failed\n");
-                      exit(EXIT_FAILURE);
-                  }
-                  if (addedIdx > 0) {
+                  if (add(hash, hashLen, loadF, row, rowLen, nFilled) >= 0) {
+                    /* addedIdx = add(hash, hashLen, loadF, row, rowLen, nFilled); */
+                    if (addedIdx < 0) {
+                        printf("\naddedIdx: %d\n", addedIdx);
+                        printf("\nCould not add\n");
+                        exit(EXIT_FAILURE);
+                    }
                     insert(r, m, newB, pl, colors);
                     ++*nInsert;
                     printf("\nnInsert: %d\n", *nInsert);
                     compSst(r->children[r->nChild - 1], colors, cache, useCache,
                             nInsert, hash, hashLen, loadF, nFilled);
-                    free(row);
                   } else {
-                    free(m);
+                    free(row);
                     for (q = 0; q < r->n; ++q) {
                       free(newB[q]);
                     }
                     free(newB);
-                    free(row);
+                    free(m);
                   }
                   if (addedIdx > 0) {
                       /* free(row); */
@@ -694,7 +694,7 @@ void testAlgo(char *colors) {
   int pl = 0, i;
   Sst *r;
   char **b = NULL;
-  size_t n = 4;
+  size_t n = 5;
   Cache *cache = newCache();
   int nInsert = 0;
   int usesCache = 1;
