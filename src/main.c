@@ -331,7 +331,7 @@ static void printSubsst(Sst *r, size_t indent) {
   if (r) {
     size_t i, j;
     printMove(r->move);
-    printf(" ( %p )\n", (void *)r);
+    printf(" pl: %d\n", r->pl);
     for (i = 0; i < r->nChild; ++i) {
       for (j = 0; j < indent; ++j) {
         printf("\t");
@@ -362,6 +362,7 @@ static void insert(Sst *r, Move *m, char **b, int pl) {
     r->sChild *= 2;
     r->children = realloc(r->children, r->sChild * sizeof(Sst *));
   }
+  /* printf("\ninsert: pl: %d\n", pl); */
   *child = sst(m, b, r->n, pl);
   (*child)->pl = pl;
 }
@@ -457,6 +458,7 @@ static AddRes *add(char **hash, size_t hashLen, char *str, size_t strLen,
   h2Val = h2(key, hashLen);
   while (inserted == 0 && exists == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
+    /* printf("\nhashIdx: %lu\n", hashIdx); */
     if (hash[hashIdx] == 0) {
       hash[hashIdx] = str;
       inserted = 1;
@@ -507,10 +509,10 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
                     exit(EXIT_FAILURE);
                   }
                   if (addRes->state == Added) {
-                    insert(r, m, newB, pl);
+                    insert(r, m, newB, ++pl % 2);
                     ++*nInsert;
                     printf("\nnInsert: %lu\n", *nInsert);
-                    if (rand() % 10 == 0) {
+                    if (1) {
                       compSst(r->children[r->nChild - 1], colors, useCache,
                               nInsert, hash, hashLen, loadF, nFilled);
                     }
@@ -577,10 +579,10 @@ static void testAlgo(char *colors) {
   int pl = 0;
   Sst *r;
   char **b = NULL;
-  size_t n = 5;
+  size_t n = 4;
   size_t nInsert = 0;
   int usesHash = 1;
-  size_t nEntry = 1000000;
+  size_t nEntry = 10000000;
   double loadF = 0.1;
   size_t hashLen = compHashLen(nEntry, loadF);
   Move *m = initMove(0, 2, 2, 2);
@@ -598,7 +600,7 @@ static void testAlgo(char *colors) {
     printf("\nDoes not use cache\n");
   }
   compSst(r, colors, usesHash, &nInsert, hash, hashLen, loadF, &nFilled);
-  /* printSst(r); */
+  printSst(r);
   printf("\nInsert count: %lu\n", nInsert);
   freeSst(r);
   freeHash(hash, hashLen);
