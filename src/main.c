@@ -424,9 +424,6 @@ static size_t strToNum(char *str, size_t strLen) {
     charVal = str[i] - '0' + 1;
     num = num + powerRes * charVal;
   }
-  while (num >= INT_MAX) {
-      num -= INT_MAX;
-  }
   res = (size_t)num;
   return res;
 }
@@ -458,12 +455,10 @@ static AddRes *add(char **hash, size_t hashLen, char *str, size_t strLen,
   h2Val = h2(key, hashLen);
   while (inserted == 0 && exists == 0 && i < hashLen) {
     hashIdx = compHashIdx(h1Val, h2Val, i, hashLen);
-    /* printf("\nhashIdx: %lu\n", hashIdx); */
     if (hash[hashIdx] == 0) {
       hash[hashIdx] = str;
       inserted = 1;
     } else if (strcmp(hash[hashIdx], str) == 0) {
-      /* printf("\nadd: exists\n"); */
       exists = 1;
     }
     ++i;
@@ -481,11 +476,10 @@ static AddRes *add(char **hash, size_t hashLen, char *str, size_t strLen,
 }
 
 static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
-                    char **hash, size_t hashLen, double loadF,
-                    size_t *nFilled) {
+                    char **hash, size_t hashLen, double loadF, size_t *nFilled,
+                    int pl) {
   size_t i, j, q;
   int k, z;
-  int pl = 1;
   for (i = 0; i < r->n; ++i) {
     for (j = 0; j < r->n; ++j) {
       if (r->b[i][j] != colors[0]) {
@@ -509,12 +503,12 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
                     exit(EXIT_FAILURE);
                   }
                   if (addRes->state == Added) {
-                    insert(r, m, newB, ++pl % 2);
+                    insert(r, m, newB, (pl + 1) % 2);
                     ++*nInsert;
-                    printf("\nnInsert: %lu\n", *nInsert);
                     if (1) {
                       compSst(r->children[r->nChild - 1], colors, useCache,
-                              nInsert, hash, hashLen, loadF, nFilled);
+                              nInsert, hash, hashLen, loadF, nFilled,
+                              (pl + 1) % 2);
                     }
                   } else {
                     free(row);
@@ -526,11 +520,11 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
                   }
                   free(addRes);
                 } else {
-                  insert(r, m, newB, pl);
+                  insert(r, m, newB, (pl + 1) % 2);
                   ++*nInsert;
                   printf("\nnInsert: %lu\n", *nInsert);
                   compSst(r->children[r->nChild - 1], colors, useCache, nInsert,
-                          hash, hashLen, loadF, nFilled);
+                          hash, hashLen, loadF, nFilled, (pl + 1) % 2);
                 }
               }
             }
@@ -599,7 +593,7 @@ static void testAlgo(char *colors) {
   } else {
     printf("\nDoes not use cache\n");
   }
-  compSst(r, colors, usesHash, &nInsert, hash, hashLen, loadF, &nFilled);
+  compSst(r, colors, usesHash, &nInsert, hash, hashLen, loadF, &nFilled, 0);
   printSst(r);
   printf("\nInsert count: %lu\n", nInsert);
   freeSst(r);
