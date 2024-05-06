@@ -142,15 +142,6 @@ static int findMin(int *arr, int n) {
   return min_;
 }
 
-/* static void printArr(int *counts, int n) { */
-/*   int i; */
-/*   printf("\n"); */
-/*   for (i = 0; i < n; ++i) { */
-/*     printf("%d ", counts[i]); */
-/*   } */
-/*   printf("\n"); */
-/* } */
-
 static void compScore(int pl, int *counts0, int *counts1, int *score0,
                       int *score1) {
   int *counts, *prevScore, min_, score;
@@ -257,9 +248,7 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
       }
       printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
       scanf(" %lu %lu %lu %lu", &p.x0, &p.y0, &p.x1, &p.y1);
-      /* printf("\nMove: (%d, %d), (%d, %d)\n", p.x0, p.y0, p.x1, p.y1); */
       setMiddle(&p);
-      /* printf("\nMiddle x: %d, Middle y: %d\n", p.mx, p.my); */
       move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
       compScore(pl, counts0, counts1, &score0, &score1);
@@ -572,7 +561,7 @@ static void testAlgo(char *colors) {
   int pl = 0;
   Sst *r;
   char **b = NULL;
-  size_t n = 5;
+  size_t n = 4;
   size_t nInsert = 0;
   int usesHash = 1;
   size_t nEntry = 10000000;
