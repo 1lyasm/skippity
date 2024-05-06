@@ -505,11 +505,10 @@ static void compSst(Sst *r, char *colors, int useCache, size_t *nInsert,
                   if (addRes->state == Added) {
                     insert(r, m, newB, (pl + 1) % 2);
                     ++*nInsert;
-                    if (1) {
-                      compSst(r->children[r->nChild - 1], colors, useCache,
-                              nInsert, hash, hashLen, loadF, nFilled,
-                              (pl + 1) % 2);
-                    }
+                    printf("\nnInsert: %lu\n", *nInsert);
+                    compSst(r->children[r->nChild - 1], colors, useCache,
+                            nInsert, hash, hashLen, loadF, nFilled,
+                            (pl + 1) % 2);
                   } else {
                     free(row);
                     for (q = 0; q < r->n; ++q) {
@@ -573,7 +572,7 @@ static void testAlgo(char *colors) {
   int pl = 0;
   Sst *r;
   char **b = NULL;
-  size_t n = 4;
+  size_t n = 5;
   size_t nInsert = 0;
   int usesHash = 1;
   size_t nEntry = 10000000;
@@ -594,7 +593,7 @@ static void testAlgo(char *colors) {
     printf("\nDoes not use cache\n");
   }
   compSst(r, colors, usesHash, &nInsert, hash, hashLen, loadF, &nFilled, 0);
-  printSst(r);
+  /* printSst(r); */
   printf("\nInsert count: %lu\n", nInsert);
   freeSst(r);
   freeHash(hash, hashLen);
