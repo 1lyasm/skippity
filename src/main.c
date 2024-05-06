@@ -180,23 +180,8 @@ static int inBoard(int x, int y, size_t n) {
   return x >= 0 && x < n2 && y >= 0 & y < n2;
 }
 
-static int canMoveAll(char **b, size_t n, char *colors, size_t i, size_t j) {
-  int res = 0, di, dj;
-  for (di = -1; di <= 1 && !res; ++di) {
-    for (dj = -1; dj <= 1 && !res; ++dj) {
-      if (abs(di) != abs(dj)) {
-        res = inBoard((int)i + di, (int)j + dj, n) &&
-              inBoard((int)i + 2 * di, (int)j + 2 * dj, n) &&
-              b[(int)i + di][(int)j + dj] != colors[0] &&
-              b[(int)i + 2 * di][(int)j + 2 * dj] == colors[0];
-      }
-    }
-  }
-  return res;
-}
-
-static int canMove(char **b, size_t n, char *colors, size_t i, size_t j,
-                   int di, int dj) {
+static int canMove(char **b, size_t n, char *colors, size_t i, size_t j, int di,
+                   int dj) {
   return inBoard((int)i + di, (int)j + dj, n) &&
          inBoard((int)i + 2 * di, (int)j + 2 * dj, n) &&
          b[(int)i + di][(int)j + dj] != colors[0] &&
@@ -209,7 +194,10 @@ static int gameEnds(char **b, size_t n, char *colors) {
   for (i = 0; i < n && ends; ++i) {
     for (j = 0; j < n && ends; ++j) {
       if (b[i][j] != colors[0]) {
-        if (canMoveAll(b, n, colors, i, j)) {
+        if (canMove(b, n, colors, i, j, 1, 0) ||
+            canMove(b, n, colors, i, j, 0, 1) ||
+            canMove(b, n, colors, i, j, -1, 0) ||
+            canMove(b, n, colors, i, j, 0, -1)) {
           ends = 0;
         }
       }
