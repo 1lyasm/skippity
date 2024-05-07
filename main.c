@@ -501,12 +501,35 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                     exit(EXIT_FAILURE);
                   }
                   if (addRes->state == Added) {
+                    Sst *child = NULL;
+                    int nextPlayer = (pl + 1) % 2;
+                    int currentRow = i + 2 * k, currentColumn = j + 2 * z;
                     insert(r, m, newB, (pl + 1) % 2);
                     ++*nInsert;
                     printf("\nnInsert: %lu\n", *nInsert);
-                    compSst(r->children[r->nChild - 1], colors, useHash,
+                    child = r->children[r->nChild - 1];
+                    compSst(child, colors, useHash,
                             nInsert, hash, hashLen, HASH_LOAD_FACTOR, nFilled,
-                            (pl + 1) % 2);
+                            nextPlayer);
+
+                    for (kk = -1; kk <= 1; ++kk) {
+                      for (zz = -1; zz <= 1; ++zz) {
+                        if (abs(kk) != abs(zz)) {
+                          if (canMove(child->b, r->n, colors, currentRow, currentColumn, kk, zz)) {
+                            Move *move = initMove(currentRow, currentColumn,
+                                                  (size_t) ((int) currentRow + 2 * kk),
+                                                  (size_t) ((int) currentColumn + 2 * zz));
+                            char **grandChildBoard = copyB(child->b, child->n);
+                            moveNoMem(grandChildBoard, colors, move);
+                            insert(child, move, grandChildBoard, child->pl);
+                            ++*nInsert;
+                            printf("\nnInsert: %lu\n", *nInsert);
+                            compSst(child->children[child->nChild - 1], colors, useHash, nInsert,
+                                    hash, hashLen, HASH_LOAD_FACTOR, nFilled, child->pl);
+                          }
+                        }
+                      }
+                    }
                   } else {
                     free(row);
                     for (q = 0; q < r->n; ++q) {
