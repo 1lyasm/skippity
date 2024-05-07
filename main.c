@@ -316,18 +316,22 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
 }
 
 static void printMove(Move *m) {
-  printf("[(%lu, %lu), (%lu, %lu)]", m->x0, m->y0, m->x1, m->y1);
+  printf("[ %lu, %lu -> %lu, %lu ]", m->x0, m->y0, m->x1, m->y1);
 }
 
 static void printSubsst(Sst *r, size_t depth, size_t maxDepth) {
   if (r) {
     size_t i, j;
+
+    printf("%d. %d: ", depth, r->pl);
     printMove(r->move);
-    printf(" pl: %d\n", r->pl);
+    printf("\n");
+    printBoard(r->b, r->n);
+    printf("\n");
     for (i = 0; i < r->nChild; ++i) {
       if (depth + 1 <= maxDepth) {
         for (j = 0; j <= depth; ++j) {
-          printf("\t");
+          printf("  ");
         }
         printSubsst(r->children[i], depth + 1, maxDepth);
       }
@@ -535,7 +539,7 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                           ++*nInsert;
 //                          printf("\nnInsert: %lu\n", *nInsert);
                           compSst(child->children[child->nChild - 1], colors, useHash, nInsert,
-                                  hash, hashLen, HASH_LOAD_FACTOR, nFilled, pl);
+                                  hash, hashLen, HASH_LOAD_FACTOR, nFilled, child->pl);
                         }
                       }
                     }
@@ -591,7 +595,7 @@ static void testAlgo(char *colors) {
   size_t HASH_ENTRY_COUNT = 10000000;
   double HASH_LOAD_FACTOR = 0.1;
   Move *INITIAL_MOVE = initMove(0, 2, 2, 2);
-  int MAX_PRINT_DEPTH = 2;
+  int MAX_PRINT_DEPTH = INT_MAX;
 
   Sst *r;
   char **board = NULL;
