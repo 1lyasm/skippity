@@ -520,12 +520,14 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                   Sst *child = NULL;
                   int nextPlayer = (pl + 1) % 2;
                   int currentRow = i + 2 * k, currentColumn = j + 2 * z;
+
                   insert(r, m, newB, nextPlayer);
                   ++*nInsert;
 //                  printf("\nnInsert: %lu\n", *nInsert);
                   child = r->children[r->nChild - 1];
                   compSst(child, colors, useHash, nInsert,
                           hash, hashLen, HASH_LOAD_FACTOR, nFilled, nextPlayer);
+
                   for (kk = -1; kk <= 1; ++kk) {
                     for (zz = -1; zz <= 1; ++zz) {
                       if (abs(kk) != abs(zz)) {
@@ -544,6 +546,7 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                       }
                     }
                   }
+
                 }
               }
             }
@@ -591,7 +594,7 @@ static void freeHash(char **hash, size_t hashLen) {
 static void testAlgo(char *colors) {
   int INITIAL_PLAYER_ID = 0;
   size_t BOARD_LENGTH = 4;
-  int USE_HASH = FALSE;
+  int USE_HASH = TRUE;
   size_t HASH_ENTRY_COUNT = 10000000;
   double HASH_LOAD_FACTOR = 0.1;
   Move *INITIAL_MOVE = initMove(0, 2, 2, 2);
