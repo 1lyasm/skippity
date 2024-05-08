@@ -214,7 +214,7 @@ static void setMiddle(Move *m) {
   m->my = (m->y0 + m->y1) / 2;
 }
 
-static void playHuman(char **b, size_t n, char *colors, int pl) {
+static void playWithHuman(char **b, size_t n, char *colors, int pl) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
     wantsRedo = 1, score0, score1, i;
   Move p;
@@ -234,10 +234,10 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
         undo(b, &p, &h);
         ++hPos;
         printBoard(b, n);
+        nRedo += 1;
         if (nRedo >= 1) {
           switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         }
-        nRedo += 1;
       } else {
         wantsRedo = 0;
         switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
@@ -255,7 +255,7 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
       move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
       compScore(pl, counts0, counts1, &score0, &score1);
-      printf("\nScore of pl 0: %d, 1: %d\n", score0, score1);
+      printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
       if (gameEnds(b, n, colors)) {
         if (score0 == score1) {
           int min0 = findMin(counts0, N_SKIPPER),
@@ -656,12 +656,15 @@ int main() {
   char colors[] = {'O', 'A', 'B', 'C', 'D', 'E'};
   int mode;
   int pl = 0;
-  testAlgo(colors);
   srand((unsigned) time(NULL));
   printf("Do you want to continue the previous game ('y': yes)? ");
   scanf(" %c", &input);
   if (input == 'y') {
     FILE *inf = fopen("skippity.txt", "r");
+    if (!inf) {
+      printf("\nPrevious game does not exist\n");
+      exit(EXIT_SUCCESS);
+    }
     char *buf = malloc(1024 * sizeof(char));
     size_t k;
     fgets(buf, 1024, inf);
@@ -691,8 +694,9 @@ int main() {
   printf("\nEnter game mode (0: human, 1: computer): ");
   scanf(" %d", &mode);
   if (mode == 0) {
-    playHuman(b, n, colors, pl);
+    playWithHuman(b, n, colors, pl);
   } else {
+//    playWithComputer(b, n, colors, pl);
   }
   for (i = 0; i < n; ++i) {
     free(b[i]);
