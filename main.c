@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -251,7 +250,7 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
         exit(EXIT_SUCCESS);
       }
       printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
-      scanf(" %lu %lu %lu %lu", &p.x0, &p.y0, &p.x1, &p.y1);
+      scanf(" %llu %llu %llu %llu", &p.x0, &p.y0, &p.x1, &p.y1);
       setMiddle(&p);
       move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
@@ -316,14 +315,14 @@ static void playHuman(char **b, size_t n, char *colors, int pl) {
 }
 
 static void printMove(Move *m) {
-  printf("[ %lu, %lu -> %lu, %lu ]", m->x0, m->y0, m->x1, m->y1);
+  printf("[ %llu, %llu -> %llu, %llu ]", m->x0, m->y0, m->x1, m->y1);
 }
 
 static void printSubsst(Sst *r, size_t depth, size_t maxDepth) {
   if (r) {
     size_t i, j;
 
-    printf("%d. %d: ", depth, r->pl);
+    printf("%llu. %d: ", depth, r->pl);
     printMove(r->move);
     printf("\n");
     printBoard(r->b, r->n);
