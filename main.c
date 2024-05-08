@@ -135,6 +135,16 @@ static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
   *hPos = 0;
 }
 
+static void passMove(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
+                    int *hPos) {
+  *pl = (*pl + 1) % 2;
+  *nUndo = 0;
+  *nRedo = 0;
+  *wantsRedo = 1;
+  *hPos = 0;
+}
+
+
 static int findMin(int *arr, int n) {
   int min_ = INT_MAX, i;
   for (i = 0; i < n; ++i) {
@@ -293,7 +303,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
           } else {
             canUndo = 1;
           }
-          printf("\nCan undo: %d\n", canUndo);
+//          printf("\nCan undo: %d\n", canUndo);
         } else {
           undoes = 0;
         }
@@ -313,6 +323,113 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
   free(counts0);
   free(counts1);
 }
+
+static void playWithComputer(char **b, size_t n, char *colors, int pl) {
+  int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
+    wantsRedo = 1, score0, score1, i;
+  Move p;
+  char input;
+  int *counts0 = calloc(N_SKIPPER, sizeof(int));
+  int *counts1 = calloc(N_SKIPPER, sizeof(int));
+  History h;
+  while (ended == 0) {
+    if (pl == 0) {
+      canUndo = 0;
+      redoes = 0;
+      undoes = 0;
+      if (hPos <= -1 && wantsRedo) {
+        printf("\nRedo? ('y': yes, 'n': no): ");
+        scanf(" %c", &input);
+        redoes = input == 'y';
+        if (redoes) {
+          undo(b, &p, &h);
+          ++hPos;
+          printBoard(b, n);
+          nRedo += 1;
+          if (nRedo >= 1) {
+            switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          }
+        } else {
+          wantsRedo = 0;
+          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+        }
+      } else {
+        printf("\nDo you want to save and exit ('y': yes)? ");
+        scanf(" %c", &input);
+        if (input == 'y') {
+          save(b, n, pl);
+          exit(EXIT_SUCCESS);
+        }
+        printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
+        scanf(" %llu %llu %llu %llu", &p.x0, &p.y0, &p.x1, &p.y1);
+        setMiddle(&p);
+        move(b, colors, &p, &h, pl, counts0, counts1);
+        printBoard(b, n);
+        compScore(pl, counts0, counts1, &score0, &score1);
+        printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
+        if (gameEnds(b, n, colors)) {
+          if (score0 == score1) {
+            int min0 = findMin(counts0, N_SKIPPER),
+              min1 = findMin(counts1, N_SKIPPER);
+            int escore0 = 0, escore1 = 0;
+            for (i = 0; i < N_SKIPPER; ++i) {
+              escore0 += counts0[i] - min0;
+            }
+            for (i = 0; i < N_SKIPPER; ++i) {
+              escore1 += counts1[i] - min1;
+            }
+            printf("\nExtra score of pl 0: %d\n", escore0);
+            printf("\nExtra score of pl 1: %d\n", escore1);
+            if (escore0 == escore1) {
+              printf("\nGame ends in a tie\n");
+            } else if (escore0 > escore1) {
+              printf("\nPlayer 0 wins\n");
+            } else {
+              printf("\nPlayer 1 wins\n");
+            }
+          } else if (score0 > score1) {
+            printf("\nPlayer 0 wins\n");
+          } else {
+            printf("\nPlayer 1 wins\n");
+          }
+          ended = 1;
+        } else {
+          if (nUndo <= 0) {
+            printf("\nUndo ('y': yes, 'n': no)? ");
+            scanf(" %c", &input);
+            undoes = input == 'y';
+            if (undoes && hPos <= -1) {
+              printf("\nCan not undo\n");
+              printBoard(b, n);
+            } else {
+              canUndo = 1;
+            }
+            //          printf("\nCan undo: %d\n", canUndo);
+          } else {
+            undoes = 0;
+          }
+          if (!(undoes && nUndo == 0) || !canUndo) {
+            switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          } else {
+            undo(b, &p, &h);
+            if (undoes) {
+              --hPos;
+              nUndo += 1;
+            }
+            printBoard(b, n);
+          }
+        }
+      }
+    } else {
+      printf("\nComputer passed the move\n");
+      passMove(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+      printf("\nCurrent player: %d\n", pl);
+    }
+  }
+  free(counts0);
+  free(counts1);
+}
+
 
 static void printMove(Move *m) {
   printf("[ %llu, %llu -> %llu, %llu ]", m->x0, m->y0, m->x1, m->y1);
@@ -696,7 +813,7 @@ int main() {
   if (mode == 0) {
     playWithHuman(b, n, colors, pl);
   } else {
-//    playWithComputer(b, n, colors, pl);
+    playWithComputer(b, n, colors, pl);
   }
   for (i = 0; i < n; ++i) {
     free(b[i]);
