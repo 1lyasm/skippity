@@ -14,6 +14,12 @@ typedef enum {
     Exists, Filled, Added
 } AddState;
 
+typedef enum {
+    MinimizeOpponentCaptures = 0,
+    MaximizeCaptures = 1,
+    Win = 2
+} Strategy;
+
 typedef struct {
     AddState state;
     size_t index;
@@ -135,8 +141,8 @@ static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
   *hPos = 0;
 }
 
-static void passMove(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
-                    int *hPos) {
+static void switchPlayerAsComputer(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
+                                   int *hPos) {
   *pl = (*pl + 1) % 2;
   *nUndo = 0;
   *nRedo = 0;
@@ -155,21 +161,10 @@ static int findMin(int *arr, int n) {
   return min_;
 }
 
-static void compScore(int pl, int *counts0, int *counts1, int *score0,
-                      int *score1) {
-  int *counts, *prevScore, min_, score;
-  if (pl == 0) {
-    counts = counts0;
-    prevScore = score0;
-  } else {
-    counts = counts1;
-    prevScore = score1;
-  }
-  /* printf("\nCounts: "); */
-  /* printArr(counts, N_SKIPPER); */
-  min_ = findMin(counts, N_SKIPPER);
-  score = min_;
-  *prevScore = score;
+static void computeScores(int pl, int *counts0, int *counts1, int *score0,
+                          int *score1) {
+  *score0 = findMin(counts0, N_SKIPPER);
+  *score1 = findMin(counts1, N_SKIPPER);
 }
 
 static void save(char **b, size_t n, int pl) {
@@ -264,7 +259,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
       setMiddle(&p);
       move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
-      compScore(pl, counts0, counts1, &score0, &score1);
+      computeScores(pl, counts0, counts1, &score0, &score1);
       printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
       if (gameEnds(b, n, colors)) {
         if (score0 == score1) {
@@ -324,6 +319,50 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
   free(counts1);
 }
 
+static Move *initMove(size_t x0, size_t y0, size_t x1, size_t y1) {
+  Move *m = malloc(sizeof(Move));
+  m->x0 = x0;
+  m->y0 = y0;
+  m->x1 = x1;
+  m->y1 = y1;
+  setMiddle(m);
+  return m;
+}
+
+static Move *findAMove(char **board, int boardLength, char *colors) {
+  Move *move = NULL;
+  int found = 0;
+  size_t i, j;
+  for (i = 0; i < boardLength && !found; ++i) {
+    for (j = 0; j < boardLength && !found; ++j) {
+      if (board[i][j] != colors[0]) {
+        if (canMove(board, boardLength, colors, i, j, 1, 0)) {
+          move = initMove(i, j, i + 2, j);
+          found = 1;
+        } else if (canMove(board, boardLength, colors, i, j, 0, 1)) {
+          move = initMove(i, j, i, j + 2);
+          found = 1;
+        } else if (canMove(board, boardLength, colors, i, j, -1, 0)) {
+          move = initMove(i, j, i - 2, j);
+          found = 1;
+        } else if (canMove(board, boardLength, colors, i, j, 0, -1)) {
+          move = initMove(i, j, i, j - 2);
+          found = 1;
+        }
+      }
+    }
+  }
+  return move;
+}
+
+static Move *findBestMove(char **board, int boardLength, int movingPlayer, char *colors, Strategy strategy) {
+  return findAMove(board, boardLength, colors);
+}
+
+static void printMove(Move *m) {
+  printf("[ %llu, %llu -> %llu, %llu ]", m->x0, m->y0, m->x1, m->y1);
+}
+
 static void playWithComputer(char **b, size_t n, char *colors, int pl) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
     wantsRedo = 1, score0, score1, i;
@@ -332,6 +371,11 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
   int *counts0 = calloc(N_SKIPPER, sizeof(int));
   int *counts1 = calloc(N_SKIPPER, sizeof(int));
   History h;
+  Strategy strategy;
+  printf(
+    "\nWhich strategy will be used ('0': minimize opponent captures, "
+    "'1': maximize captures, '2': win)?");
+  scanf(" %d", &strategy);
   while (ended == 0) {
     if (pl == 0) {
       canUndo = 0;
@@ -345,10 +389,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
           undo(b, &p, &h);
           ++hPos;
           printBoard(b, n);
-          nRedo += 1;
-          if (nRedo >= 1) {
-            switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
-          }
+          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         } else {
           wantsRedo = 0;
           switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
@@ -365,7 +406,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         setMiddle(&p);
         move(b, colors, &p, &h, pl, counts0, counts1);
         printBoard(b, n);
-        compScore(pl, counts0, counts1, &score0, &score1);
+        computeScores(pl, counts0, counts1, &score0, &score1);
         printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
         if (gameEnds(b, n, colors)) {
           if (score0 == score1) {
@@ -421,19 +462,50 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         }
       }
     } else {
-      printf("\nComputer passed the move\n");
-      passMove(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
-      printf("\nCurrent player: %d\n", pl);
+      Move *bestMove = findBestMove(b, n, pl, colors, strategy);
+      printf("\nComputer played: ");
+      printMove(bestMove);
+      printf("\n");
+      setMiddle(bestMove);
+      moveNoMem(b, colors, bestMove);
+      printBoard(b, n);
+      computeScores(pl, counts0, counts1, &score0, &score1);
+      printf("\nScore of human: %d, computer: %d\n", score0, score1);
+      if (gameEnds(b, n, colors)) {
+        if (score0 == score1) {
+          int min0 = findMin(counts0, N_SKIPPER),
+            min1 = findMin(counts1, N_SKIPPER);
+          int escore0 = 0, escore1 = 0;
+          for (i = 0; i < N_SKIPPER; ++i) {
+            escore0 += counts0[i] - min0;
+          }
+          for (i = 0; i < N_SKIPPER; ++i) {
+            escore1 += counts1[i] - min1;
+          }
+          printf("\nExtra score of pl 0: %d\n", escore0);
+          printf("\nExtra score of pl 1: %d\n", escore1);
+          if (escore0 == escore1) {
+            printf("\nGame ends in a tie\n");
+          } else if (escore0 > escore1) {
+            printf("\nPlayer 0 wins\n");
+          } else {
+            printf("\nPlayer 1 wins\n");
+          }
+        } else if (score0 > score1) {
+          printf("\nPlayer 0 wins\n");
+        } else {
+          printf("\nPlayer 1 wins\n");
+        }
+        ended = 1;
+      }
+      switchPlayerAsComputer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+      free(bestMove);
     }
   }
   free(counts0);
   free(counts1);
 }
 
-
-static void printMove(Move *m) {
-  printf("[ %llu, %llu -> %llu, %llu ]", m->x0, m->y0, m->x1, m->y1);
-}
 
 static void printSubsst(Sst *r, size_t depth, size_t maxDepth) {
   if (r) {
@@ -460,15 +532,6 @@ static void printSst(Sst *r, size_t maxDepth) {
   printSubsst(r, 0, maxDepth);
 }
 
-static Move *initMove(size_t x0, size_t y0, size_t x1, size_t y1) {
-  Move *m = malloc(sizeof(Move));
-  m->x0 = x0;
-  m->y0 = y0;
-  m->x1 = x1;
-  m->y1 = y1;
-  setMiddle(m);
-  return m;
-}
 
 static void insert(Sst *r, Move *m, char **b, int pl) {
   Sst **child = &(r->children[r->nChild++]);
@@ -774,7 +837,7 @@ int main() {
   int mode;
   int pl = 0;
   srand((unsigned) time(NULL));
-  printf("Do you want to continue the previous game ('y': yes)? ");
+  printf("Do you want to continue a previous game ('y': yes)? ");
   scanf(" %c", &input);
   if (input == 'y') {
     FILE *inf = fopen("skippity.txt", "r");
