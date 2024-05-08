@@ -506,7 +506,7 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                     int currentRow = i + 2 * k, currentColumn = j + 2 * z;
                     insert(r, m, newB, (pl + 1) % 2);
                     ++*nInsert;
-                    printf("\nnInsert: %lu\n", *nInsert);
+//                    printf("\nnInsert: %lu\n", *nInsert);
                     child = r->children[r->nChild - 1];
                     compSst(child, colors, useHash,
                             nInsert, hash, hashLen, HASH_LOAD_FACTOR, nFilled,
@@ -523,7 +523,7 @@ static void compSst(Sst *r, char *colors, int useHash, size_t *nInsert,
                             moveNoMem(grandChildBoard, colors, move);
                             insert(child, move, grandChildBoard, child->pl);
                             ++*nInsert;
-                            printf("\nnInsert: %lu\n", *nInsert);
+//                            printf("\nnInsert: %lu\n", *nInsert);
                             compSst(child->children[child->nChild - 1], colors, useHash, nInsert,
                                     hash, hashLen, HASH_LOAD_FACTOR, nFilled, child->pl);
                           }
@@ -616,7 +616,7 @@ static void freeHash(char **hash, size_t hashLen) {
 
 static void testAlgo(char *colors) {
   int INITIAL_PLAYER_ID = 0;
-  size_t BOARD_LENGTH = 4;
+  size_t BOARD_LENGTH = 5;
   int USE_HASH = TRUE;
   size_t HASH_ENTRY_COUNT = 10000000;
   double HASH_LOAD_FACTOR = 0.1;
@@ -642,7 +642,7 @@ static void testAlgo(char *colors) {
     printf("\nDoes not use cache\n");
   }
   compSst(r, colors, USE_HASH, &nInsert, hash, hashLen, HASH_LOAD_FACTOR, &nFilled, 0);
-  printSst(r, MAX_PRINT_DEPTH);
+//  printSst(r, MAX_PRINT_DEPTH);
   printf("\nInsert count: %lu\n", nInsert);
   freeSst(r);
   freeHash(hash, hashLen);
