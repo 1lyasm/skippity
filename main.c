@@ -125,7 +125,7 @@ static void move(char **b, char *colors, Move *p, History *h, int pl,
   }
 }
 
-static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
+static void switchPlayer(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
                     int *hPos) {
   char continues;
   printf("\nDo you want to play another move ('y': yes, 'n': no)? ");
@@ -141,7 +141,7 @@ static void switchP(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
   *hPos = 0;
 }
 
-static void switchPlayerAsComputer(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
+static void switchPlayerImmediately(int *pl, int *nUndo, int *nRedo, int *wantsRedo,
                                    int *hPos) {
   *pl = (*pl + 1) % 2;
   *nUndo = 0;
@@ -241,11 +241,13 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
         printBoard(b, n);
         nRedo += 1;
         if (nRedo >= 1) {
-          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         }
       } else {
         wantsRedo = 0;
-        switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+        if (nUndo == 0) {
+          switchPlayerImmediately(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+        }
       }
     } else {
       printf("\nDo you want to save and exit ('y': yes)? ");
@@ -303,7 +305,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
           undoes = 0;
         }
         if (!(undoes && nUndo == 0) || !canUndo) {
-          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         } else {
           undo(b, &p, &h);
           if (undoes) {
@@ -389,10 +391,12 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
           undo(b, &p, &h);
           ++hPos;
           printBoard(b, n);
-          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         } else {
           wantsRedo = 0;
-          switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          if (nUndo == 0) {
+            switchPlayerImmediately(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+          }
         }
       } else {
         printf("\nDo you want to save and exit ('y': yes)? ");
@@ -450,7 +454,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
             undoes = 0;
           }
           if (!(undoes && nUndo == 0) || !canUndo) {
-            switchP(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+            switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
           } else {
             undo(b, &p, &h);
             if (undoes) {
@@ -498,7 +502,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         }
         ended = 1;
       }
-      switchPlayerAsComputer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
+      switchPlayerImmediately(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
       free(bestMove);
     }
   }
