@@ -433,16 +433,16 @@ static char **initB(char **b, size_t n, char *colors) {
   return b;
 }
 
-static char *serializeBoard(Position *position) {
+static char *serializeBoard(char **board, size_t boardLength,
+                            int movingPlayer) {
   size_t i, j = 0, k = 0;
-  char *res =
-      calloc((position->boardLength * position->boardLength + 2), sizeof(char));
-  for (i = 0; i < position->boardLength; ++i) {
-    for (j = 0; j < position->boardLength; ++j) {
-      res[k++] = position->board[i][j];
+  char *res = calloc((boardLength * boardLength + 2), sizeof(char));
+  for (i = 0; i < boardLength; ++i) {
+    for (j = 0; j < boardLength; ++j) {
+      res[k++] = board[i][j];
     }
   }
-  res[k++] = (char)position->movingPlayer + '0';
+  res[k++] = (char)movingPlayer + '0';
   return res;
 }
 
@@ -474,8 +474,8 @@ static size_t compHashIdx(size_t h1Val, size_t h2Val, size_t i,
   return (h1Val + (i * h2Val)) % hashLen;
 }
 
-static HashAddResult *add(char **hash, size_t hashLen, char *str, size_t strLen,
-                          size_t *nFilled) {
+static HashAddResult *addToHash(char **hash, size_t hashLen, char *str,
+                                size_t strLen) {
   size_t key;
   size_t i = 0;
   int inserted = 0;
@@ -500,7 +500,6 @@ static HashAddResult *add(char **hash, size_t hashLen, char *str, size_t strLen,
   if (inserted == 1) {
     res->state = Added;
     res->addedIndex = hashIdx;
-    ++*nFilled;
   } else if (exists == 1) {
     res->state = Exists;
   } else {
@@ -543,162 +542,78 @@ static void freeHash(char **hash, size_t hashLen) {
   free(hash);
 }
 
-static void branchFromPosition(Sst *positionRoot, Position *position,
-                               char *colors) {
-  //  size_t i, j, q;
-  //  int k, z, kk, zz;
-  //  for (i = 0; i < r->n; ++i) {
-  //    for (j = 0; j < r->n; ++j) {
-  //      if (r->b[i][j] != colors[0]) {
-  //        for (k = -1; k <= 1; ++k) {
-  //          for (z = -1; z <= 1; ++z) {
-  //            if (abs(k) != abs(z)) {
-  //              if (canMove(r->b, r->n, colors, i, j, k, z)) {
-  //                char **newB;
-  //                Move *m = initMove(i, j, (size_t) ((int) i + 2 * k),
-  //                                   (size_t) ((int) j + 2 * z));
-  //                char *row;
-  //                size_t rowLen = r->n * r->n + 1;
-  //                AddRes *addRes;
-  //                newB = copyB(r->b, r->n);
-  //                moveNoMem(newB, colors, m);
-  //                if (useHash) {
-  //                  row = serialize(newB, pl, r->n);
-  //                  addRes = add(hash, hashLen, row, rowLen, nFilled);
-  //                  if (addRes->state == Filled) {
-  //                    printf("\nHash is filled, could not add\n");
-  //                    exit(EXIT_FAILURE);
-  //                  }
-  //                  if (addRes->state == Added) {
-  //                    Sst *child = NULL;
-  //                    int nextPlayer = (pl + 1) % 2;
-  //                    int currentRow = i + 2 * k, currentColumn = j + 2 * z;
-  //                    insert(r, m, newB, (pl + 1) % 2);
-  //                    ++*nInsert;
-  ////                    printf("\nnInsert: %lu\n", *nInsert);
-  //                    child = r->children[r->nChild - 1];
-  //                    compSst(child, colors, useHash,
-  //                            nInsert, hash, hashLen, HASH_LOAD_FACTOR,
-  //                            nFilled, nextPlayer);
-  //
-  //                    for (kk = -1; kk <= 1; ++kk) {
-  //                      for (zz = -1; zz <= 1; ++zz) {
-  //                        if (abs(kk) != abs(zz)) {
-  //                          if (canMove(child->b, r->n, colors, currentRow,
-  //                          currentColumn, kk, zz)) {
-  //                            Move *move = initMove(currentRow, currentColumn,
-  //                                                  (size_t) ((int) currentRow
-  //                                                  + 2 * kk), (size_t) ((int)
-  //                                                  currentColumn + 2 * zz));
-  //                            char **grandChildBoard = copyB(child->b,
-  //                            child->n); moveNoMem(grandChildBoard, colors,
-  //                            move); insert(child, move, grandChildBoard,
-  //                            child->pl);
-  //                            ++*nInsert;
-  ////                            printf("\nnInsert: %lu\n", *nInsert);
-  //                            compSst(child->children[child->nChild - 1],
-  //                            colors, useHash, nInsert,
-  //                                    hash, hashLen, HASH_LOAD_FACTOR,
-  //                                    nFilled, child->pl);
-  //                          }
-  //                        }
-  //                      }
-  //                    }
-  //                  } else {
-  //                    free(row);
-  //                    for (q = 0; q < r->n; ++q) {
-  //                      free(newB[q]);
-  //                    }
-  //                    free(newB);
-  //                    free(m);
-  //                  }
-  //                  free(addRes);
-  //                } else {
-  //                  Sst *child = NULL;
-  //                  int nextPlayer = (pl + 1) % 2;
-  //                  int currentRow = i + 2 * k, currentColumn = j + 2 * z;
-  //
-  //                  insert(r, m, newB, nextPlayer);
-  //                  ++*nInsert;
-  ////                  printf("\nnInsert: %lu\n", *nInsert);
-  //                  child = r->children[r->nChild - 1];
-  //                  compSst(child, colors, useHash, nInsert,
-  //                          hash, hashLen, HASH_LOAD_FACTOR, nFilled,
-  //                          nextPlayer);
-  //
-  //                  for (kk = -1; kk <= 1; ++kk) {
-  //                    for (zz = -1; zz <= 1; ++zz) {
-  //                      if (abs(kk) != abs(zz)) {
-  //                        if (canMove(child->b, r->n, colors, currentRow,
-  //                        currentColumn, kk, zz)) {
-  //                          Move *move = initMove(currentRow, currentColumn,
-  //                                                (size_t) ((int) currentRow +
-  //                                                2 * kk), (size_t) ((int)
-  //                                                currentColumn + 2 * zz));
-  //                          char **grandChildBoard = copyB(child->b,
-  //                          child->n); moveNoMem(grandChildBoard, colors,
-  //                          move); insert(child, move, grandChildBoard,
-  //                          child->pl);
-  //                          ++*nInsert;
-  ////                          printf("\nnInsert: %lu\n", *nInsert);
-  //                          compSst(child->children[child->nChild - 1],
-  //                          colors, useHash, nInsert,
-  //                                  hash, hashLen, HASH_LOAD_FACTOR, nFilled,
-  //                                  child->pl);
-  //                        }
-  //                      }
-  //                    }
-  //                  }
-  //
-  //                }
-  //              }
-  //            }
-  //          }
-  //        }
-  //      }
-  //    }
-  //  }
-
-  //                  row = serialize(newB, pl, r->n);
-  //                  addRes = add(hash, hashLen, row, rowLen, nFilled);
-  //                  if (addRes->state == Filled) {
-  //                    printf("\nHash is filled, could not add\n");
-  //                    exit(EXIT_FAILURE);
-  //                  }
-  //                  if (addRes->state == Added) {
-  //                    Sst *child = NULL;
-  //                    int nextPlayer = (pl + 1) % 2;
-  //                    int currentRow = i + 2 * k, currentColumn = j + 2 * z;
-  //                    insert(r, m, newB, (pl + 1) % 2);
-  //                    ++*nInsert;
-  ////                    printf("\nnInsert: %lu\n", *nInsert);
-  //                    child = r->children[r->nChild - 1];
-  //                    compSst(child, colors, useHash,
-  //                            nInsert, hash, hashLen, HASH_LOAD_FACTOR,
-  //                            nFilled, nextPlayer);
-  //
-
+static void branchFromPosition(Sst *root, char *colors, char **hashTable,
+                               size_t hashLength, int depth,
+                               int maxSearchDepth) {
   size_t row, column;
   int rowChange, columnChange;
-  for (row = 0; row < position->boardLength; ++row) {
-    for (column = 0; column < position->boardLength; ++column) {
-      if (position->board[row][column] != colors[0]) {
+  if (depth > maxSearchDepth) {
+    return;
+  }
+  for (row = 0; row < root->n; ++row) {
+    for (column = 0; column < root->n; ++column) {
+      if (root->b[row][column] != colors[0]) {
         for (rowChange = -1; rowChange <= 1; ++rowChange) {
           for (columnChange = -1; columnChange <= 1; ++columnChange) {
             if (abs(rowChange) != abs(columnChange)) {
-              if (canMove(positionRoot->b, positionRoot->n, colors, row, column,
-                          rowChange, columnChange)) {
+              if (canMove(root->b, root->n, colors, row, column, rowChange,
+                          columnChange)) {
                 char **newBoard;
-                Move *move =
-                    initMove(row, column, (size_t)((int)row + 2 * rowChange),
-                             (size_t)((int)column + 2 * columnChange));
+                size_t finalRow = row + 2 * (size_t)rowChange,
+                       finalColumn = column + 2 * (size_t)columnChange;
+                Move *move = initMove(row, column, finalRow, finalColumn);
                 char *boardAsString;
-                size_t boardStringLength =
-                    positionRoot->n * positionRoot->n + 1;
+                size_t boardStringLength = root->n * root->n + 1;
                 HashAddResult *addResult;
-                newBoard = copyBoard(positionRoot->b, positionRoot->n);
+                int nextPlayer = (root->pl + 1) % 2;
+                newBoard = copyBoard(root->b, root->n);
                 moveNoMem(newBoard, colors, move);
-                boardAsString = serializeBoard(position);
+                boardAsString = serializeBoard(newBoard, root->n, nextPlayer);
+                addResult = addToHash(hashTable, hashLength, boardAsString,
+                                      boardStringLength);
+                if (addResult->state == Added) {
+                  Sst *childRoot = NULL;
+                  int secondRowChange, secondColumnChange;
+                  insert(root, move, newBoard, nextPlayer);
+                  childRoot = root->children[root->nChild - 1];
+                  branchFromPosition(childRoot, colors, hashTable, hashLength,
+                                     depth + 1, maxSearchDepth);
+                  for (secondRowChange = -1; secondRowChange <= 1;
+                       ++secondRowChange) {
+                    for (secondColumnChange = -1; secondColumnChange <= 1;
+                         ++secondColumnChange) {
+                      if (abs(secondRowChange) != abs(secondColumnChange)) {
+                        if (canMove(childRoot->b, childRoot->n, colors,
+                                    finalRow, finalColumn, secondRowChange,
+                                    secondColumnChange)) {
+                          Move *continuationMove = initMove(
+                              finalRow, finalColumn,
+                              (size_t)((int)finalRow + 2 * secondRowChange),
+                              (size_t)((int)finalColumn +
+                                       2 * secondColumnChange));
+                          char **grandChildBoard =
+                              copyBoard(childRoot->b, childRoot->n);
+                          moveNoMem(grandChildBoard, colors, continuationMove);
+                          insert(childRoot, continuationMove, grandChildBoard,
+                                 childRoot->pl);
+                          branchFromPosition(
+                              childRoot->children[childRoot->nChild - 1],
+                              colors, hashTable, hashLength, depth + 1,
+                              maxSearchDepth);
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  size_t i;
+                  free(boardAsString);
+                  for (i = 0; i < root->n; ++i) {
+                    free(newBoard[i]);
+                  }
+                  free(newBoard);
+                  free(move);
+                }
+                free(addResult);
               }
             }
           }
@@ -710,11 +625,23 @@ static void branchFromPosition(Sst *positionRoot, Position *position,
 
 static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
                           char *colors, Strategy strategy) {
+  size_t HASH_ENTRY_COUNT = (size_t)1e6;
+  double HASH_LOAD_FACTOR = 0.1;
+  int MAX_SEARCH_DEPTH = 5;
+
+  size_t hashLength = compHashLen(HASH_ENTRY_COUNT, HASH_LOAD_FACTOR);
+  char **hashTable = calloc(hashLength, sizeof(char *));
+
   Position position = {
       .board = board, .boardLength = boardLength, .movingPlayer = movingPlayer};
-  Sst *positionRoot = constructSst(NULL, &position);
-  branchFromPosition(positionRoot, &position, colors);
-  printSst(positionRoot, boardLength);
+  Sst *root = constructSst(NULL, &position);
+
+  branchFromPosition(root, colors, hashTable, hashLength, 0, MAX_SEARCH_DEPTH);
+
+  printSst(root, boardLength);
+
+  freeHash(hashTable, hashLength);
+
   return NULL;
 }
 
