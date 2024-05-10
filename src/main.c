@@ -48,6 +48,14 @@ typedef struct {
   char lastAft;
 } History;
 
+static void printIntegerArray(int *arr, size_t n) {
+  size_t i;
+  for (i = 0; i < n; ++i) {
+    printf("%d ", arr[i]);
+  }
+  printf("\n");
+}
+
 static void moveNoMem(char **b, char *colors, Move *p, int *counts0,
                       int *counts1, int pl) {
   char taken = b[p->mx][p->my];
@@ -106,6 +114,7 @@ static Sst *constructSst(Move *move, char **board, size_t boardLength,
   sst->pl = movingPlayer;
   sst->nChild = 0;
   sst->sChild = 16;
+  sst->positionValue = -1;
   sst->children = malloc(sst->sChild * sizeof(Sst *));
   return sst;
 }
@@ -381,7 +390,7 @@ static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
 
     printf("%lu. %d: ", depth, r->pl);
     printMove(r->move);
-    printf("\n");
+    printf(", %lf\n", r->positionValue);
     if (printsBoard) {
       printBoard(r->b, r->n);
     }
@@ -561,6 +570,9 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
   size_t row, column;
   int rowChange, columnChange;
   int isTerminalNode = 1;
+  int *countsCopy0 = calloc(N_SKIPPER, sizeof(int));
+  int *countsCopy1 = calloc(N_SKIPPER, sizeof(int));
+  size_t j;
   for (row = 0; row < root->n; ++row) {
     for (column = 0; column < root->n; ++column) {
       if (root->b[row][column] != colors[0]) {
@@ -577,8 +589,13 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                 size_t boardStringLength = root->n * root->n + 1;
                 HashAddResult *addResult;
                 int nextPlayer = (root->pl + 1) % 2;
+                for (j = 0; j < N_SKIPPER; ++j) {
+                  countsCopy0[j] = counts0[j];
+                  countsCopy1[j] = counts1[j];
+                }
                 newBoard = copyBoard(root->b, root->n);
-                moveNoMem(newBoard, colors, move, counts0, counts1, nextPlayer);
+                moveNoMem(newBoard, colors, move, countsCopy0, countsCopy1,
+                          nextPlayer);
                 boardAsString = serializeBoard(newBoard, root->n, nextPlayer);
                 addResult = addToHash(hashTable, hashLength, boardAsString,
                                       boardStringLength);
@@ -591,7 +608,7 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                     childRoot = root->children[root->nChild - 1];
                     branchFromPosition(childRoot, colors, hashTable, hashLength,
                                        depth + 1, maxSearchDepth, strategy,
-                                       counts0, counts1);
+                                       countsCopy0, countsCopy1);
                     for (secondRowChange = -1; secondRowChange <= 1;
                          ++secondRowChange) {
                       for (secondColumnChange = -1; secondColumnChange <= 1;
@@ -608,14 +625,15 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                             char **grandChildBoard =
                                 copyBoard(childRoot->b, childRoot->n);
                             moveNoMem(grandChildBoard, colors, continuationMove,
-                                      counts0, counts1, childRoot->pl);
+                                      countsCopy0, countsCopy1, childRoot->pl);
                             if (depth + 2 <= maxSearchDepth) {
                               insert(childRoot, continuationMove,
                                      grandChildBoard, childRoot->pl);
                               branchFromPosition(
                                   childRoot->children[childRoot->nChild - 1],
                                   colors, hashTable, hashLength, depth + 2,
-                                  maxSearchDepth, strategy, counts0, counts1);
+                                  maxSearchDepth, strategy, countsCopy0,
+                                  countsCopy1);
                             } else {
                               size_t i;
                               free(continuationMove);
@@ -656,7 +674,7 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
   if (isTerminalNode) {
     if (strategy == Win) {
       int score0, score1, scoreSum;
-      computeScores(counts0, counts1, &score0, &score1);
+      computeScores(countsCopy0, countsCopy1, &score0, &score1);
       scoreSum = score0 + score1;
       if (scoreSum > 0) {
         root->positionValue = (double)score1 / (score0 + score1);
@@ -665,10 +683,13 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
       }
     }
   }
+  free(countsCopy0);
+  free(countsCopy1);
 }
 
 static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
-                          char *colors, Strategy strategy, Move *opponentMove) {
+                          char *colors, Strategy strategy, Move *opponentMove,
+                          int *counts0, int *counts1) {
   size_t HASH_ENTRY_COUNT = (size_t)1e6;
   double HASH_LOAD_FACTOR = 0.1;
 
@@ -679,8 +700,6 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   Sst *root = constructSst(opponentMove, boardCopy, boardLength,
                            (movingPlayer + 1) % 2);
   int maxSearchDepth;
-  int *counts0 = calloc(N_SKIPPER, sizeof(int));
-  int *counts1 = calloc(N_SKIPPER, sizeof(int));
 
   if (boardLength <= 6) {
     maxSearchDepth = 5;
@@ -804,7 +823,8 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
       }
     } else {
       Move *opponentMove = initMove(p.x0, p.y0, p.x1, p.y1);
-      Move *bestMove = findBestMove(b, n, pl, colors, strategy, opponentMove);
+      Move *bestMove = findBestMove(b, n, pl, colors, strategy, opponentMove,
+                                    counts0, counts1);
       printf("\nComputer played: ");
       printMove(bestMove);
       printf("\n");
