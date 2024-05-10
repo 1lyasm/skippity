@@ -740,10 +740,14 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   size_t hashLength = compHashLen(HASH_ENTRY_COUNT, HASH_LOAD_FACTOR);
   char **hashTable = calloc(hashLength, sizeof(char *));
 
+  Move *bestMove = NULL;
+  double bestPositionValue = -INT_MAX;
+  int bestPositionIndex = -1;
   char **boardCopy = copyBoard(board, boardLength);
   Sst *root = constructSst(opponentMove, boardCopy, boardLength,
                            (movingPlayer + 1) % 2);
   int maxSearchDepth;
+  size_t i;
 
   if (boardLength <= 6) {
     maxSearchDepth = 5;
@@ -758,13 +762,28 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   branchFromPosition(root, colors, hashTable, hashLength, 0, maxSearchDepth,
                      strategy, counts0, counts1);
 
-  printSst(root, boardLength);
+  /* printSst(root, boardLength); */
+
+  /* printf("\nPosition values:\n"); */
+  for (i = 0; i < root->nChild; ++i) {
+    /* printMove(root->children[i]->move); */
+    /* printf(" %lf\n", root->children[i]->positionValue); */
+    if (root->children[i]->positionValue > bestPositionValue) {
+      bestPositionValue = root->children[i]->positionValue;
+      bestPositionIndex = (int)i;
+    }
+  }
+
+  bestMove = initMove(root->children[bestPositionIndex]->move->x0,
+                      root->children[bestPositionIndex]->move->y0,
+                      root->children[bestPositionIndex]->move->x1,
+                      root->children[bestPositionIndex]->move->y1);
 
   freeSst(root);
 
   freeHash(hashTable, hashLength);
 
-  return findAMove(board, boardLength, colors);
+  return bestMove;
 }
 
 static void playWithComputer(char **b, size_t n, char *colors, int pl) {
