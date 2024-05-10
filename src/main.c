@@ -47,12 +47,6 @@ typedef struct {
   char lastAft;
 } History;
 
-typedef struct {
-  char **board;
-  size_t boardLength;
-  int movingPlayer;
-} Position;
-
 static void moveNoMem(char **b, char *colors, Move *p) {
   b[p->mx][p->my] = colors[0];
   b[p->x1][p->y1] = b[p->x0][p->y0];
@@ -87,12 +81,13 @@ static char **copyBoard(char **b, size_t n) {
   return newB;
 }
 
-static Sst *constructSst(Move *move, Position *position) {
+static Sst *constructSst(Move *move, char **board, size_t boardLength,
+                         int movingPlayer) {
   Sst *sst = malloc(sizeof(Sst));
   sst->move = move;
-  sst->b = position->board;
-  sst->n = position->boardLength;
-  sst->pl = position->movingPlayer;
+  sst->b = board;
+  sst->n = boardLength;
+  sst->pl = movingPlayer;
   sst->nChild = 0;
   sst->sChild = 16;
   sst->children = malloc(sst->sChild * sizeof(Sst *));
@@ -363,41 +358,43 @@ static void printMove(Move *m) {
   printf("[ %lu, %lu -> %lu, %lu ]", m->x0, m->y0, m->x1, m->y1);
 }
 
-static void printSubsst(Sst *r, size_t depth, size_t maxDepth) {
+static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
+                        int printsBoard) {
   if (r) {
     size_t i, j;
 
     printf("%lu. %d: ", depth, r->pl);
     printMove(r->move);
     printf("\n");
-    printBoard(r->b, r->n);
+    if (printsBoard) {
+      printBoard(r->b, r->n);
+    }
     printf("\n");
     for (i = 0; i < r->nChild; ++i) {
       if (depth + 1 <= maxDepth) {
         for (j = 0; j <= depth; ++j) {
           printf("  ");
         }
-        printSubsst(r->children[i], depth + 1, maxDepth);
+        printSubsst(r->children[i], depth + 1, maxDepth, printsBoard);
       }
     }
   }
 }
 
 static void printSst(Sst *r, size_t maxDepth) {
+  int PRINTS_BOARD = 1;
   printf("\nSst:\n");
-  printSubsst(r, 0, maxDepth);
+  printSubsst(r, 0, maxDepth, PRINTS_BOARD);
 }
 
 static void insert(Sst *r, Move *m, char **b, int pl) {
-  Sst **child = &(r->children[r->nChild++]);
-  Position position = {.board = b, .boardLength = r->n, .movingPlayer = pl};
-  if (r->nChild >= r->sChild) {
+  if (r->nChild + 1 >= r->sChild) {
     r->sChild *= 2;
     r->children = realloc(r->children, r->sChild * sizeof(Sst *));
   }
-  /* printf("\ninsert: pl: %d\n", pl); */
-  *child = constructSst(m, &position);
-  (*child)->pl = pl;
+  r->children[r->nChild] = constructSst(m, b, r->n, pl);
+  r->children[r->nChild]->pl = pl;
+  ++(r->nChild);
 }
 
 static void freeSst(Sst *r) {
@@ -547,9 +544,6 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                                int maxSearchDepth) {
   size_t row, column;
   int rowChange, columnChange;
-  if (depth > maxSearchDepth) {
-    return;
-  }
   for (row = 0; row < root->n; ++row) {
     for (column = 0; column < root->n; ++column) {
       if (root->b[row][column] != colors[0]) {
@@ -574,35 +568,54 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                 if (addResult->state == Added) {
                   Sst *childRoot = NULL;
                   int secondRowChange, secondColumnChange;
-                  insert(root, move, newBoard, nextPlayer);
-                  childRoot = root->children[root->nChild - 1];
-                  branchFromPosition(childRoot, colors, hashTable, hashLength,
-                                     depth + 1, maxSearchDepth);
-                  for (secondRowChange = -1; secondRowChange <= 1;
-                       ++secondRowChange) {
-                    for (secondColumnChange = -1; secondColumnChange <= 1;
-                         ++secondColumnChange) {
-                      if (abs(secondRowChange) != abs(secondColumnChange)) {
-                        if (canMove(childRoot->b, childRoot->n, colors,
-                                    finalRow, finalColumn, secondRowChange,
-                                    secondColumnChange)) {
-                          Move *continuationMove = initMove(
-                              finalRow, finalColumn,
-                              (size_t)((int)finalRow + 2 * secondRowChange),
-                              (size_t)((int)finalColumn +
-                                       2 * secondColumnChange));
-                          char **grandChildBoard =
-                              copyBoard(childRoot->b, childRoot->n);
-                          moveNoMem(grandChildBoard, colors, continuationMove);
-                          insert(childRoot, continuationMove, grandChildBoard,
-                                 childRoot->pl);
-                          branchFromPosition(
-                              childRoot->children[childRoot->nChild - 1],
-                              colors, hashTable, hashLength, depth + 1,
-                              maxSearchDepth);
+                  if (depth + 1 <= maxSearchDepth) {
+                    insert(root, move, newBoard, nextPlayer);
+                    childRoot = root->children[root->nChild - 1];
+                    branchFromPosition(childRoot, colors, hashTable, hashLength,
+                                       depth + 1, maxSearchDepth);
+                    for (secondRowChange = -1; secondRowChange <= 1;
+                         ++secondRowChange) {
+                      for (secondColumnChange = -1; secondColumnChange <= 1;
+                           ++secondColumnChange) {
+                        if (abs(secondRowChange) != abs(secondColumnChange)) {
+                          if (canMove(childRoot->b, childRoot->n, colors,
+                                      finalRow, finalColumn, secondRowChange,
+                                      secondColumnChange)) {
+                            Move *continuationMove = initMove(
+                                finalRow, finalColumn,
+                                (size_t)((int)finalRow + 2 * secondRowChange),
+                                (size_t)((int)finalColumn +
+                                         2 * secondColumnChange));
+                            char **grandChildBoard =
+                                copyBoard(childRoot->b, childRoot->n);
+                            moveNoMem(grandChildBoard, colors,
+                                      continuationMove);
+                            if (depth + 2 <= maxSearchDepth) {
+                              insert(childRoot, continuationMove,
+                                     grandChildBoard, childRoot->pl);
+                              branchFromPosition(
+                                  childRoot->children[childRoot->nChild - 1],
+                                  colors, hashTable, hashLength, depth + 2,
+                                  maxSearchDepth);
+                            } else {
+                              size_t i;
+                              free(continuationMove);
+                              for (i = 0; i < childRoot->n; ++i) {
+                                free(grandChildBoard[i]);
+                              }
+                              free(grandChildBoard);
+                            }
+                          }
                         }
                       }
                     }
+                  } else {
+                    size_t i;
+                    for (i = 0; i < root->n; ++i) {
+                      free(newBoard[i]);
+                    }
+                    free(newBoard);
+                    free(move);
                   }
                 } else {
                   size_t i;
@@ -624,7 +637,7 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
 }
 
 static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
-                          char *colors, Strategy strategy) {
+                          char *colors, Strategy strategy, Move *opponentMove) {
   size_t HASH_ENTRY_COUNT = (size_t)1e6;
   double HASH_LOAD_FACTOR = 0.1;
   int MAX_SEARCH_DEPTH = 5;
@@ -632,17 +645,18 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   size_t hashLength = compHashLen(HASH_ENTRY_COUNT, HASH_LOAD_FACTOR);
   char **hashTable = calloc(hashLength, sizeof(char *));
 
-  Position position = {
-      .board = board, .boardLength = boardLength, .movingPlayer = movingPlayer};
-  Sst *root = constructSst(NULL, &position);
+  char **boardCopy = copyBoard(board, boardLength);
+  Sst *root = constructSst(opponentMove, boardCopy, boardLength, movingPlayer);
 
   branchFromPosition(root, colors, hashTable, hashLength, 0, MAX_SEARCH_DEPTH);
 
   printSst(root, boardLength);
 
+  freeSst(root);
+
   freeHash(hashTable, hashLength);
 
-  return NULL;
+  return findAMove(board, boardLength, colors);
 }
 
 static void playWithComputer(char **b, size_t n, char *colors, int pl) {
@@ -655,7 +669,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
   History h;
   Strategy strategy;
   printf("\nWhich strategy will be used ('0': minimize opponent captures, "
-         "'1': maximize captures, '2': win)?");
+         "'1': maximize captures, '2': win)? ");
   scanf(" %d", &strategy);
   while (ended == 0) {
     if (pl == 0) {
@@ -745,7 +759,8 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         }
       }
     } else {
-      Move *bestMove = findBestMove(b, n, pl, colors, strategy);
+      Move *opponentMove = initMove(p.x0, p.y0, p.x1, p.y1);
+      Move *bestMove = findBestMove(b, n, pl, colors, strategy, opponentMove);
       printf("\nComputer played: ");
       printMove(bestMove);
       printf("\n");
@@ -798,7 +813,7 @@ int main() {
   int mode;
   int pl = 0;
   srand((unsigned)time(NULL));
-  printf("Do you want to continue a previous game ('y': yes)? ");
+  printf("\nDo you want to continue a previous game ('y': yes)? ");
   scanf(" %c", &input);
   if (input == 'y') {
     FILE *inf;
@@ -811,10 +826,8 @@ int main() {
     }
     fgets(buf, 1024, inf);
     fclose(inf);
-    printf("\nBuf: %s\n", buf);
     k = strlen(buf);
     n = (size_t)(sqrt((double)(k - 1)));
-    printf("\nN: %lu\n", n);
     b = malloc(n * sizeof(char *));
     for (i = 0; i < n; ++i) {
       b[i] = malloc(n * sizeof(char));
