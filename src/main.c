@@ -648,15 +648,26 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
                           char *colors, Strategy strategy, Move *opponentMove) {
   size_t HASH_ENTRY_COUNT = (size_t)1e6;
   double HASH_LOAD_FACTOR = 0.1;
-  int MAX_SEARCH_DEPTH = 5;
 
   size_t hashLength = compHashLen(HASH_ENTRY_COUNT, HASH_LOAD_FACTOR);
   char **hashTable = calloc(hashLength, sizeof(char *));
 
   char **boardCopy = copyBoard(board, boardLength);
   Sst *root = constructSst(opponentMove, boardCopy, boardLength, movingPlayer);
+  int maxSearchDepth;
 
-  branchFromPosition(root, colors, hashTable, hashLength, 0, MAX_SEARCH_DEPTH);
+  if (boardLength <= 6) {
+      maxSearchDepth = 5;
+  } else if (boardLength <= 10) {
+      maxSearchDepth = 3;
+  } else if (boardLength <= 20) {
+      maxSearchDepth = 2;
+  } else {
+      maxSearchDepth = 1;
+  }
+  printf("\nmaxSearchDepth: %d\n", maxSearchDepth);
+
+  branchFromPosition(root, colors, hashTable, hashLength, 0, maxSearchDepth);
 
   printSst(root, boardLength);
 
