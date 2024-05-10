@@ -408,7 +408,7 @@ static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
 }
 
 static void printSst(Sst *r, size_t maxDepth) {
-  int PRINTS_BOARD = 1;
+  int PRINTS_BOARD = 0;
   printf("\nSst:\n");
   printSubsst(r, 0, maxDepth, PRINTS_BOARD);
 }
@@ -628,6 +628,8 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                             moveNoMem(grandChildBoard, colors, continuationMove,
                                       countsCopy0, countsCopy1, childRoot->pl);
                             if (depth + 2 <= maxSearchDepth) {
+                              size_t i;
+                              childRoot->positionValue = -INT_MAX;
                               insert(childRoot, continuationMove,
                                      grandChildBoard, childRoot->pl);
                               branchFromPosition(
@@ -635,6 +637,24 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                                   colors, hashTable, hashLength, depth + 2,
                                   maxSearchDepth, strategy, countsCopy0,
                                   countsCopy1);
+                              for (i = 0; i < childRoot->nChild; ++i) {
+                                if (childRoot->children[i]->positionValue >
+                                    childRoot->positionValue) {
+                                  childRoot->positionValue =
+                                      childRoot->children[i]->positionValue;
+                                }
+                              }
+                              for (i = 0; i < childRoot->nChild; ++i) {
+                                if (childRoot->children[i]->pl == 0 &&
+                                    childRoot->pl == 0) {
+                                  if (childRoot->children[i]->positionValue <
+                                      childRoot->positionValue) {
+                                    childRoot->positionValue =
+                                        childRoot->children[i]->positionValue;
+                                  }
+                                }
+                              }
+
                             } else {
                               size_t i;
                               free(continuationMove);
@@ -688,9 +708,23 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
         root->positionValue = 0.5;
       }
     } else if (strategy == MaximizeCaptures) {
-        root->positionValue = counts1Sum;
+      root->positionValue = counts1Sum;
     } else if (strategy == MinimizeOpponentCaptures) {
-        root->positionValue = -counts0Sum;
+      root->positionValue = -counts0Sum;
+    }
+  } else {
+    size_t i;
+    for (i = 0; i < root->nChild; ++i) {
+      if (root->children[i]->positionValue > root->positionValue) {
+        root->positionValue = root->children[i]->positionValue;
+      }
+    }
+    for (i = 0; i < root->nChild; ++i) {
+      if (root->children[i]->pl == 0 && root->pl == 0) {
+        if (root->children[i]->positionValue < root->positionValue) {
+          root->positionValue = root->children[i]->positionValue;
+        }
+      }
     }
   }
   free(countsCopy0);
