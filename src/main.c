@@ -55,18 +55,23 @@ static void moveNoMem(char **b, char *colors, Move *p) {
 
 static void printBoard(char **b, size_t n) {
   size_t i, j;
-  printf("\n   ");
+  printf("\n    ");
   for (i = 0; i < n; ++i) {
     printf("%d ", (int)i);
+    if (i < 10) {
+      printf(" ");
+    }
   }
   printf("\n");
   for (i = 0; i < n; ++i) {
-      if (i < 10) {printf(" ");}
-    printf("%d ", (int)i);
+    if (i < 10) {
+      printf(" ");
+    }
+    printf("%d  ", (int)i);
     for (j = 0; j < n; ++j) {
       printf("%c ", b[i][j]);
 
-        if (j >= 10) {printf(" ");}
+      printf(" ");
     }
     printf("\n");
   }
