@@ -23,12 +23,12 @@ typedef struct {
 } HashAddResult;
 
 typedef struct {
-  size_t x0;
-  size_t y0;
-  size_t x1;
-  size_t y1;
-  size_t mx;
-  size_t my;
+  int x0;
+  int y0;
+  int x1;
+  int y1;
+  int mx;
+  int my;
 } Move;
 
 /* State-space Tree */
@@ -280,7 +280,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
         exit(EXIT_SUCCESS);
       }
       printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
-      scanf(" %lu %lu %lu %lu", &p.x0, &p.y0, &p.x1, &p.y1);
+      scanf(" %d %d %d %d", &p.x0, &p.y0, &p.x1, &p.y1);
       setMiddle(&p);
       move(b, colors, &p, &h, pl, counts0, counts1);
       printBoard(b, n);
@@ -346,10 +346,10 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
 
 static Move *initMove(size_t x0, size_t y0, size_t x1, size_t y1) {
   Move *m = malloc(sizeof(Move));
-  m->x0 = x0;
-  m->y0 = y0;
-  m->x1 = x1;
-  m->y1 = y1;
+  m->x0 = (int)x0;
+  m->y0 = (int)y0;
+  m->x1 = (int)x1;
+  m->y1 = (int)y1;
   setMiddle(m);
   return m;
 }
@@ -381,7 +381,7 @@ static Move *findAMove(char **board, size_t boardLength, char *colors) {
 }
 
 static void printMove(Move *m) {
-  printf("[ %lu, %lu -> %lu, %lu ]", m->x0, m->y0, m->x1, m->y1);
+  printf("[ %d, %d -> %d, %d ]", m->x0, m->y0, m->x1, m->y1);
 }
 
 static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
@@ -826,7 +826,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
           exit(EXIT_SUCCESS);
         }
         printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
-        scanf(" %lu %lu %lu %lu", &p.x0, &p.y0, &p.x1, &p.y1);
+        scanf(" %d %d %d %d", &p.x0, &p.y0, &p.x1, &p.y1);
         setMiddle(&p);
         move(b, colors, &p, &h, pl, counts0, counts1);
         printBoard(b, n);
