@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -114,7 +115,7 @@ static Sst *constructSst(Move *move, char **board, size_t boardLength,
   sst->pl = movingPlayer;
   sst->nChild = 0;
   sst->sChild = 16;
-  sst->positionValue = -1;
+  sst->positionValue = -INT_MAX;
   sst->children = malloc(sst->sChild * sizeof(Sst *));
   return sst;
 }
@@ -407,7 +408,7 @@ static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
 }
 
 static void printSst(Sst *r, size_t maxDepth) {
-  int PRINTS_BOARD = 0;
+  int PRINTS_BOARD = 1;
   printf("\nSst:\n");
   printSubsst(r, 0, maxDepth, PRINTS_BOARD);
 }
@@ -672,15 +673,24 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
     }
   }
   if (isTerminalNode) {
+    int score0, score1, scoreSum;
+    int counts0Sum = 0, counts1Sum = 0;
+    computeScores(counts0, counts1, &score0, &score1);
+    scoreSum = score0 + score1;
+    for (j = 0; j < N_SKIPPER; ++j) {
+      counts0Sum += counts0[j];
+      counts1Sum += counts1[j];
+    }
     if (strategy == Win) {
-      int score0, score1, scoreSum;
-      computeScores(countsCopy0, countsCopy1, &score0, &score1);
-      scoreSum = score0 + score1;
       if (scoreSum > 0) {
         root->positionValue = (double)score1 / (score0 + score1);
       } else {
         root->positionValue = 0.5;
       }
+    } else if (strategy == MaximizeCaptures) {
+        root->positionValue = counts1Sum;
+    } else if (strategy == MinimizeOpponentCaptures) {
+        root->positionValue = -counts0Sum;
     }
   }
   free(countsCopy0);
