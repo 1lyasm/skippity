@@ -38,6 +38,7 @@ typedef struct Sst {
   int pl;
   size_t nChild;
   size_t sChild;
+  double positionValue;
   struct Sst **children;
 } Sst;
 
@@ -47,10 +48,17 @@ typedef struct {
   char lastAft;
 } History;
 
-static void moveNoMem(char **b, char *colors, Move *p) {
+static void moveNoMem(char **b, char *colors, Move *p, int *counts0,
+                      int *counts1, int pl) {
+  char taken = b[p->mx][p->my];
   b[p->mx][p->my] = colors[0];
   b[p->x1][p->y1] = b[p->x0][p->y0];
   b[p->x0][p->y0] = colors[0];
+  if (pl == 0) {
+    ++counts0[taken - 'A'];
+  } else {
+    ++counts1[taken - 'A'];
+  }
 }
 
 static void printBoard(char **b, size_t n) {
@@ -390,7 +398,7 @@ static void printSubsst(Sst *r, size_t depth, size_t maxDepth,
 }
 
 static void printSst(Sst *r, size_t maxDepth) {
-  int PRINTS_BOARD = 1;
+  int PRINTS_BOARD = 0;
   printf("\nSst:\n");
   printSubsst(r, 0, maxDepth, PRINTS_BOARD);
 }
@@ -548,10 +556,11 @@ static void freeHash(char **hash, size_t hashLen) {
 }
 
 static void branchFromPosition(Sst *root, char *colors, char **hashTable,
-                               size_t hashLength, int depth,
-                               int maxSearchDepth) {
+                               size_t hashLength, int depth, int maxSearchDepth,
+                               Strategy strategy, int *counts0, int *counts1) {
   size_t row, column;
   int rowChange, columnChange;
+  int isTerminalNode = 1;
   for (row = 0; row < root->n; ++row) {
     for (column = 0; column < root->n; ++column) {
       if (root->b[row][column] != colors[0]) {
@@ -569,7 +578,7 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                 HashAddResult *addResult;
                 int nextPlayer = (root->pl + 1) % 2;
                 newBoard = copyBoard(root->b, root->n);
-                moveNoMem(newBoard, colors, move);
+                moveNoMem(newBoard, colors, move, counts0, counts1, nextPlayer);
                 boardAsString = serializeBoard(newBoard, root->n, nextPlayer);
                 addResult = addToHash(hashTable, hashLength, boardAsString,
                                       boardStringLength);
@@ -577,10 +586,12 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                   Sst *childRoot = NULL;
                   int secondRowChange, secondColumnChange;
                   if (depth + 1 <= maxSearchDepth) {
+                    isTerminalNode = 0;
                     insert(root, move, newBoard, nextPlayer);
                     childRoot = root->children[root->nChild - 1];
                     branchFromPosition(childRoot, colors, hashTable, hashLength,
-                                       depth + 1, maxSearchDepth);
+                                       depth + 1, maxSearchDepth, strategy,
+                                       counts0, counts1);
                     for (secondRowChange = -1; secondRowChange <= 1;
                          ++secondRowChange) {
                       for (secondColumnChange = -1; secondColumnChange <= 1;
@@ -596,15 +607,15 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
                                          2 * secondColumnChange));
                             char **grandChildBoard =
                                 copyBoard(childRoot->b, childRoot->n);
-                            moveNoMem(grandChildBoard, colors,
-                                      continuationMove);
+                            moveNoMem(grandChildBoard, colors, continuationMove,
+                                      counts0, counts1, childRoot->pl);
                             if (depth + 2 <= maxSearchDepth) {
                               insert(childRoot, continuationMove,
                                      grandChildBoard, childRoot->pl);
                               branchFromPosition(
                                   childRoot->children[childRoot->nChild - 1],
                                   colors, hashTable, hashLength, depth + 2,
-                                  maxSearchDepth);
+                                  maxSearchDepth, strategy, counts0, counts1);
                             } else {
                               size_t i;
                               free(continuationMove);
@@ -642,6 +653,18 @@ static void branchFromPosition(Sst *root, char *colors, char **hashTable,
       }
     }
   }
+  if (isTerminalNode) {
+    if (strategy == Win) {
+      int score0, score1, scoreSum;
+      computeScores(counts0, counts1, &score0, &score1);
+      scoreSum = score0 + score1;
+      if (scoreSum > 0) {
+        root->positionValue = (double)score1 / (score0 + score1);
+      } else {
+        root->positionValue = 0.5;
+      }
+    }
+  }
 }
 
 static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
@@ -653,21 +676,24 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   char **hashTable = calloc(hashLength, sizeof(char *));
 
   char **boardCopy = copyBoard(board, boardLength);
-  Sst *root = constructSst(opponentMove, boardCopy, boardLength, movingPlayer);
+  Sst *root = constructSst(opponentMove, boardCopy, boardLength,
+                           (movingPlayer + 1) % 2);
   int maxSearchDepth;
+  int *counts0 = calloc(N_SKIPPER, sizeof(int));
+  int *counts1 = calloc(N_SKIPPER, sizeof(int));
 
   if (boardLength <= 6) {
-      maxSearchDepth = 5;
+    maxSearchDepth = 5;
   } else if (boardLength <= 10) {
-      maxSearchDepth = 3;
+    maxSearchDepth = 3;
   } else if (boardLength <= 20) {
-      maxSearchDepth = 2;
+    maxSearchDepth = 2;
   } else {
-      maxSearchDepth = 1;
+    maxSearchDepth = 1;
   }
-  printf("\nmaxSearchDepth: %d\n", maxSearchDepth);
 
-  branchFromPosition(root, colors, hashTable, hashLength, 0, maxSearchDepth);
+  branchFromPosition(root, colors, hashTable, hashLength, 0, maxSearchDepth,
+                     strategy, counts0, counts1);
 
   printSst(root, boardLength);
 
@@ -761,7 +787,6 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
             } else {
               canUndo = 1;
             }
-            //          printf("\nCan undo: %d\n", canUndo);
           } else {
             undoes = 0;
           }
@@ -784,7 +809,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
       printMove(bestMove);
       printf("\n");
       setMiddle(bestMove);
-      moveNoMem(b, colors, bestMove);
+      moveNoMem(b, colors, bestMove, counts0, counts1, pl);
       printBoard(b, n);
       computeScores(counts0, counts1, &score0, &score1);
       printf("\nScore of human: %d, computer: %d\n", score0, score1);
