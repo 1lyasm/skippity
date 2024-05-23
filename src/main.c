@@ -852,6 +852,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         setMiddle(&p);
         move(b, colors, &p, &h, pl, counts0, counts1);
         printBoard(b, n);
+        printCounts(counts0, counts1, N_SKIPPER);
         computeScores(counts0, counts1, &score0, &score1);
         printf("\nScore of player 0: %d, 1: %d\n", score0, score1);
         if (gameEnds(b, n, colors)) {
@@ -917,6 +918,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
       moveNoMem(b, colors, bestMove, counts0, counts1, pl);
       printBoard(b, n);
       computeScores(counts0, counts1, &score0, &score1);
+      printCounts(counts0, counts1, N_SKIPPER);
       printf("\nScore of human: %d, computer: %d\n", score0, score1);
       if (gameEnds(b, n, colors)) {
         if (score0 == score1) {
