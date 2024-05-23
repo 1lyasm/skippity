@@ -800,6 +800,13 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
     maxSearchDepth = 1;
   }
 
+  /*
+   * Branch from root position until reaching a specified depth.
+   * When reaching terminal nodes, evaluate the position
+   * according to the given strategy and propagate the evaluation
+   * result upwards. Choose the move with the best evaluation
+   * result.
+   */
   branchFromPosition(root, colors, hashTable, hashLength, 0, maxSearchDepth,
                      strategy, counts0, counts1);
 
