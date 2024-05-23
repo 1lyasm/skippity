@@ -126,8 +126,14 @@ static void remember(History *h, char **b, Move *p) {
   h->lastAft = b[p->x1][p->y1];
 }
 
-static void undo(char **b, Move *p, History *h) {
+static void undo(char **b, Move *p, History *h, int *counts0, int *counts1,
+                 int nCount, int player) {
   char bef = h->lastBef, mid = h->lastMid, aft = h->lastAft;
+  if (player == 0) {
+    --(counts0[mid - 'A']);
+  } else {
+    --(counts1[mid - 'A']);
+  }
   remember(h, b, p);
   b[p->x0][p->y0] = bef;
   b[p->mx][p->my] = mid;
@@ -243,24 +249,24 @@ static void setMiddle(Move *m) {
 }
 
 static void printCounts(int *counts0, int *counts1, int nCount) {
-    int i;
+  int i;
 
-    printf("\nLetter counts of player 0: ");
-    for (i = 0; i < nCount; ++i) {
-        printf("%c: %d", 'A' + i, counts0[i]);
-        if (i != nCount - 1) {
-            printf(", ");
-        }
+  printf("\nLetter counts of player 0: ");
+  for (i = 0; i < nCount; ++i) {
+    printf("%c: %d", 'A' + i, counts0[i]);
+    if (i != nCount - 1) {
+      printf(", ");
     }
+  }
 
-    printf("\nLetter counts of player 1: ");
-    for (i = 0; i < nCount; ++i) {
-        printf("%c: %d", 'A' + i, counts1[i]);
-        if (i != nCount - 1) {
-            printf(", ");
-        }
+  printf("\nLetter counts of player 1: ");
+  for (i = 0; i < nCount; ++i) {
+    printf("%c: %d", 'A' + i, counts1[i]);
+    if (i != nCount - 1) {
+      printf(", ");
     }
-    printf("\n");
+  }
+  printf("\n");
 }
 
 static void playWithHuman(char **b, size_t n, char *colors, int pl) {
@@ -280,7 +286,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
       scanf(" %c", &input);
       redoes = input == 'y';
       if (redoes) {
-        undo(b, &p, &h);
+        undo(b, &p, &h, counts0, counts1, N_SKIPPER, pl);
         ++hPos;
         printBoard(b, n);
         nRedo += 1;
@@ -352,7 +358,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
         if (!(undoes && nUndo == 0) || !canUndo) {
           switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
         } else {
-          undo(b, &p, &h);
+          undo(b, &p, &h, counts0, counts1, N_SKIPPER, pl);
           if (undoes) {
             --hPos;
             nUndo += 1;
@@ -830,7 +836,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         scanf(" %c", &input);
         redoes = input == 'y';
         if (redoes) {
-          undo(b, &p, &h);
+          undo(b, &p, &h, counts0, counts1, N_SKIPPER, pl);
           ++hPos;
           printBoard(b, n);
           switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
@@ -898,7 +904,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
           if (!(undoes && nUndo == 0) || !canUndo) {
             switchPlayer(&pl, &nUndo, &nRedo, &wantsRedo, &hPos);
           } else {
-            undo(b, &p, &h);
+            undo(b, &p, &h, counts0, counts1, N_SKIPPER, pl);
             if (undoes) {
               --hPos;
               nUndo += 1;
