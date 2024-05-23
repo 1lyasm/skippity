@@ -223,8 +223,8 @@ static void computeScores(int *counts0, int *counts1, int *score0,
   *score1 = findMin(counts1, N_SKIPPER);
 }
 
-static void save(char **b, size_t n, int pl) {
-  char *buf = calloc((size_t)(n * n + 2), sizeof(char));
+static void save(char **b, size_t n, int pl, int *counts0, int *counts1) {
+  char *buf = calloc((size_t)(n * n + 12), sizeof(char));
   size_t i, j, k = 0;
   FILE *outf;
   for (i = 0; i < n; ++i) {
@@ -233,6 +233,14 @@ static void save(char **b, size_t n, int pl) {
     }
   }
   buf[k++] = (char)pl + '0';
+  for (i = 0; i < N_SKIPPER; ++i) {
+    buf[k] = (char)(counts0[i] + 'A');
+    ++k;
+  }
+  for (i = 0; i < N_SKIPPER; ++i) {
+    buf[k] = (char)(counts1[i] + 'A');
+    ++k;
+  }
   printf("\n");
   outf = fopen("skippity.txt", "w");
   fprintf(outf, "%s", buf);
@@ -276,13 +284,12 @@ static void setMiddle(Move *m) {
   m->my = (m->y0 + m->y1) / 2;
 }
 
-static void playWithHuman(char **b, size_t n, char *colors, int pl) {
+static void playWithHuman(char **b, size_t n, char *colors, int pl,
+                          int *counts0, int *counts1) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
       wantsRedo = 1, score0, score1, i;
   Move p;
   char input;
-  int *counts0 = calloc(N_SKIPPER, sizeof(int));
-  int *counts1 = calloc(N_SKIPPER, sizeof(int));
   History h;
   while (ended == 0) {
     canUndo = 0;
@@ -313,7 +320,7 @@ static void playWithHuman(char **b, size_t n, char *colors, int pl) {
       printf("\nDo you want to save and exit ('y': yes)? ");
       scanf(" %c", &input);
       if (input == 'y') {
-        save(b, n, pl);
+        save(b, n, pl, counts0, counts1);
         exit(EXIT_SUCCESS);
       }
       printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
@@ -834,13 +841,12 @@ static Move *findBestMove(char **board, size_t boardLength, int movingPlayer,
   return bestMove;
 }
 
-static void playWithComputer(char **b, size_t n, char *colors, int pl) {
+static void playWithComputer(char **b, size_t n, char *colors, int pl,
+                             int *counts0, int *counts1) {
   int ended = 0, nUndo = 0, nRedo = 0, hPos = 0, redoes, undoes, canUndo,
       wantsRedo = 1, score0, score1, i;
   Move p;
   char input;
-  int *counts0 = calloc(N_SKIPPER, sizeof(int));
-  int *counts1 = calloc(N_SKIPPER, sizeof(int));
   History h;
   Strategy strategy;
   printf("\nWhich strategy will be used ('0': minimize opponent captures, "
@@ -873,7 +879,7 @@ static void playWithComputer(char **b, size_t n, char *colors, int pl) {
         printf("\nDo you want to save and exit ('y': yes)? ");
         scanf(" %c", &input);
         if (input == 'y') {
-          save(b, n, pl);
+          save(b, n, pl, counts0, counts1);
           exit(EXIT_SUCCESS);
         }
         printf("\nPlayer %c, enter your move (x0, y0, x1, y1): ", pl + '0');
@@ -995,6 +1001,8 @@ int main() {
   char colors[] = {'O', 'A', 'B', 'C', 'D', 'E'};
   int mode;
   int pl = 0;
+  int *counts0 = calloc(N_SKIPPER, sizeof(int));
+  int *counts1 = calloc(N_SKIPPER, sizeof(int));
   srand((unsigned)time(NULL));
   printf("\nDo you want to continue a previous game ('y': yes)? ");
   scanf(" %c", &input);
@@ -1015,11 +1023,20 @@ int main() {
     for (i = 0; i < n; ++i) {
       b[i] = malloc(n * sizeof(char));
     }
-    for (i = 0; i < k - 1; ++i) {
+    for (i = 0; i < k - 11; ++i) {
       /* printf("i / n: %d\n", i / n); */
       b[i / n][i % n] = buf[i];
     }
-    pl = buf[k - 1] - '0';
+    pl = buf[k - 11] - '0';
+    for (i = 0; i < N_SKIPPER; ++i) {
+      counts0[i] = (int)buf[k - 10] - 'A';
+      ++k;
+    }
+    for (i = 0; i < N_SKIPPER; ++i) {
+      counts1[i] = (int)buf[k - 10] - 'A';
+      ++k;
+    }
+    printCounts(counts0, counts1, N_SKIPPER);
     free(buf);
   } else {
     printf("\nEnter board size: ");
@@ -1032,9 +1049,9 @@ int main() {
   printf("\nEnter game mode (0: human, 1: computer): ");
   scanf(" %d", &mode);
   if (mode == 0) {
-    playWithHuman(b, n, colors, pl);
+    playWithHuman(b, n, colors, pl, counts0, counts1);
   } else {
-    playWithComputer(b, n, colors, pl);
+    playWithComputer(b, n, colors, pl, counts0, counts1);
   }
   for (i = 0; i < n; ++i) {
     free(b[i]);
