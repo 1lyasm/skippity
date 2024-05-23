@@ -1,3 +1,7 @@
+/*
+ * Video: https://www.youtube.com/watch?v=PH80iBSwE0g
+ */
+
 #include <assert.h>
 #include <float.h>
 #include <limits.h>
